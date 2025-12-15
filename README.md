@@ -6,12 +6,11 @@ Automation workflows I built with n8n for common business tasks.
 
 | Name | Description |
 |------|-------------|
-| CV Screening | Screens resumes and scores candidates using AI |
-| Email Follow-up | Sends scheduled follow-up emails based on triggers |
+| [Facebook Ad Library Scraper](./facebook-ad-scraper/) | Scrapes competitor ads, analyzes with AI, outputs to Google Sheets |
 
 ## Usage
 
-1. Download the `.json` file
+1. Download the `.json` file from the workflow folder
 2. In n8n: **Workflows** → **Import from File**
 3. Update credentials for your setup
 
