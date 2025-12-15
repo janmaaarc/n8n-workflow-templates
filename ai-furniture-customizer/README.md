@@ -15,7 +15,7 @@ n8n workflow backend for an AI-powered furniture customization app. Users select
 
 1. User authenticates
 2. Selects a furniture product
-3. Picks upholstery collection + color
+3. Picks upholstery collection and color
 4. Gemini AI generates customized image
 5. Image uploaded to FTP, logged to Sheets
 6. User can save to gallery
