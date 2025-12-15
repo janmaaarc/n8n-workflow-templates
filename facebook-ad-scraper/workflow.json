@@ -1,0 +1,2630 @@
+{
+  "name": "Facebook Ad Scraper - Prioritized Oldest Ads",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "XtaWFhbtfxyzqrFmd",
+          "mode": "list",
+          "cachedResultName": "Facebook Ad Library Scraper (curious_coder/facebook-ads-library-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/XtaWFhbtfxyzqrFmd/input"
+        },
+        "customBody": "={\n    \"count\": 20,\n    \"scrapeAdDetails\": true,\n    \"scrapePageAds\": {\n        \"activeStatus\": \"all\",\n        \"countryCode\": \"ALL\"\n    },\n    \"urls\": [\n        {\n            \"url\": \"{{ $json.facebook_url }}\"\n        }\n    ]\n}",
+        "timeout": {},
+        "memory": 512,
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        352,
+        -176
+      ],
+      "id": "0056c3e9-6623-4fb4-80f7-7910aa9eed8a",
+      "name": "Scrape Ads",
+      "retryOnFail": true,
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "UHiUBFpjGojXEfb1",
+          "name": "Apify account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.hasVideo }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "273e5d0e-74cb-48a7-9e9a-7c24ef7d59d8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Videos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3511321f-60ac-452c-a4c8-758454dfd048",
+                    "leftValue": "={{ $json.hasImage }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Images"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1056,
+        -176
+      ],
+      "id": "158ec200-ba72-4dab-9cac-7c7b22976174",
+      "name": "Switch",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "archive ID": "={{ $('Loop Video Ads').item.json.ad_archive_id }}",
+            "Page Name": "={{ $('Loop Video Ads').item.json.snapshot.page_name }}",
+            "Page URL": "={{ $('Loop Video Ads').item.json.snapshot.page_profile_uri}}",
+            "Type": "Video",
+            "Summary": "={{ $json.summary }}",
+            "Video Script": "={{ $json.videoScript }}",
+            "Link": "={{ $('Scrape Ads').item.json.ad_library_url }}",
+            "Video Backup": "={{ $json.webViewLink }}",
+            "Start Date": "={{ $('Scrape Ads').item.json.start_date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "archive ID",
+              "displayName": "archive ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page Name",
+              "displayName": "Page Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page URL",
+              "displayName": "Page URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Start Date",
+              "displayName": "Start Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Video Backup",
+              "displayName": "Video Backup",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Video Script",
+              "displayName": "Video Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3312,
+        -320
+      ],
+      "id": "e0ab25b6-459d-4dfc-b740-9a6f4b1c32d6",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2PRO0jKj17cJr93f",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "ads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "archive ID": "={{ $('Loop Image Ads').item.json.ad_archive_id }}",
+            "Page Name": "={{ $('Loop Image Ads').item.json.snapshot.page_name }}",
+            "Page URL": "={{ $('Loop Image Ads').item.json.snapshot.page_profile_uri }}",
+            "Type": "Image",
+            "Date": "={{ $('Loop Image Ads').item.json.start_date_formatted }}",
+            "Summary": "={{ $json.summary }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "archive ID",
+              "displayName": "archive ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page Name",
+              "displayName": "Page Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page URL",
+              "displayName": "Page URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Video Script",
+              "displayName": "Video Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3088,
+        0
+      ],
+      "id": "48b79ec4-614f-4af7-a9aa-c104abbf216d",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2PRO0jKj17cJr93f",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.snapshot.images?.[0]?.original_image_url || $json.snapshot.cards?.[0]?.original_image_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1824,
+        0
+      ],
+      "id": "728cd671-4b3c-4881-b714-9e2c1c8032b2",
+      "name": "Download image",
+      "retryOnFail": true,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "88477417-e482-4acb-9659-4530726f31fa",
+      "name": "Loop Image Ads",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "text": "What's in this image? Be specific and comprehensive.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2016,
+        0
+      ],
+      "id": "bfc5407a-4deb-41d5-b65a-619059409b8f",
+      "name": "Analyze image",
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "# SCRAPE VIDEOS",
+        "height": 304,
+        "width": 2176
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1312,
+        -432
+      ],
+      "typeVersion": 1,
+      "id": "afefbeb2-d31e-4fed-8f96-69d6bb1e84e2",
+      "name": "Sticky Note",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "# SCRAPE IMAGES",
+        "height": 320,
+        "width": 2176,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1312,
+        -112
+      ],
+      "typeVersion": 1,
+      "id": "76448094-cc3f-4a4a-a853-5cf1b84eb03c",
+      "name": "Sticky Note1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "n8n-ad-library-scraper"
+        },
+        "text": "=✅ *Ad Scraping Complete!*\n\n📊 *Summary:*\n- Successfully saved to spreadsheet\n\n🔗 *View Results:*\n<https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID|Open Spreadsheet>",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        3808,
+        -160
+      ],
+      "id": "222e3e0e-2478-4f2f-9529-be75969aabef",
+      "name": "Send a message",
+      "webhookId": "90265553-982f-4609-a474-5d5f11ee25fc",
+      "credentials": {
+        "slackApi": {
+          "id": "L6mpLZFh4sLliwGY",
+          "name": "Slack account 4"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c94fba4b-f9ab-4f86-94c5-4b2de3c17e20",
+              "leftValue": "={{ ($json.advertiser?.ad_library_page_info?.page_info?.likes || 0).toString().trim() }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        -176
+      ],
+      "id": "6c72d586-dde4-435e-8d61-adb2f6080dbc",
+      "name": "If",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert Facebook ad analyst specializing in image advertisements.\n\nYour task:\n1. Analyze the ad's visual strategy and messaging\n2. Identify target audience and effectiveness factors\n3. Provide a rewritten version of the ad copy\n\nOutput ONLY valid JSON with no markdown fences:\n{\n  \"summary\": \"detailed analysis of visual strategy, target audience, and effectiveness\",\n  \"rewrittenAdCopy\": \"improved ad copy\"\n}\n\nStyle rules:\n- Be analytical and precise\n- Use casual abbreviations (San Francisco → SF)\n- No rhetorical questions\n- No hedging language"
+            },
+            {
+              "content": "=Ad Metadata:\n- Archive ID: {{ $('Loop Image Ads').item.json.ad_archive_id }}\n- Page: {{ $('Loop Image Ads').item.json.snapshot.page_name }}\n- Date: {{ $('Loop Image Ads').item.json.start_date_formatted }}\n- Engagement: {{ $('Loop Image Ads').item.json.advertiser.ad_library_page_info.page_info.likes }} likes\n\nAd Text Content:\n- Body: {{ $('Loop Image Ads').item.json.snapshot.body?.text ?? \"No body text\" }}\n- Link Description: {{ $('Loop Image Ads').item.json.snapshot.link_description ?? \"No description\" }}\n- CTA: {{ $('Loop Image Ads').item.json.snapshot.cta_text ?? \"No CTA\" }}\n\nVisual Analysis (from image):\n{{ $json.output[0].content[0].text }}\n\nAnalyze this ad and provide your response in JSON format."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2464,
+        0
+      ],
+      "id": "a9bd6abb-ccae-4bbc-a903-7954449a2063",
+      "name": "Summary and Re Write1",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "trigger": [
+          "app_mention",
+          "any_event"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "n8n-ad-library-scraper"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -176
+      ],
+      "id": "63b9373f-8713-4f49-a5a3-7d1a31352c69",
+      "name": "Slack Trigger",
+      "webhookId": "427913ac-a35b-4176-a45c-52058dd92018",
+      "credentials": {
+        "slackApi": {
+          "id": "L6mpLZFh4sLliwGY",
+          "name": "Slack account 4"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.text;\n\n// Regex to find a Facebook Ad Library URL enclosed in Slack brackets, \n// including both <url|text> and <url> formats.\n// It specifically looks for the \"https://www.facebook.com/ads/library/\" prefix.\nconst urlMatch = message.match(/<(https:\\/\\/www.facebook.com\\/ads\\/library\\/[^|>]+)/i);\n\nif (urlMatch) {\n    // urlMatch[1] contains the captured URL without the leading '<'.\n    // Clean up HTML entities like &amp; to & which are often introduced by Slack\n    // and are necessary for the URL to function correctly.\n    const rawUrl = urlMatch[1];\n    const cleanUrl = rawUrl.replace(/&amp;/g, '&');\n    \n    // Return a new item with the expected variable name 'facebook_url'\n    return [{ json: { facebook_url: cleanUrl } }];\n}\n\n// If no URL is found, return an item with a null URL.\n// This allows a subsequent If node to handle the \"no URL found\" scenario.\nreturn [{ json: { facebook_url: null, error: 'No valid Facebook Ad Library URL found in Slack message.' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        -176
+      ],
+      "id": "8ed5b653-4263-4b62-8cc7-ce1f74d83348",
+      "name": "Extract Facebook URL",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.videoUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1872,
+        -320
+      ],
+      "id": "1b0fe7a5-f699-4a9b-97dd-2b9777024c69",
+      "name": "Download video",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        3584,
+        -160
+      ],
+      "id": "4cbe473c-0171-46d3-9f75-c744c5ea5b80",
+      "name": "Aggregate",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.all();\nconst results = [];\n\nfor (const item of input) {\n  try {\n    // Get the AI response text\n    const rawText = item.json.output[0].content[0].text;\n    \n    // Remove markdown code fences if present\n    const cleanText = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    \n    // Parse the JSON\n    const parsed = JSON.parse(cleanText);\n    \n    // Add parsed data to the original item\n    results.push({\n      json: {\n        ...item.json,\n        videoScript: parsed.videoScript || \"No script available\",\n        summary: parsed.summary || \"No summary available\"\n      }\n    });\n  } catch (error) {\n    // If parsing fails, use raw text\n    results.push({\n      json: {\n        ...item.json,\n        videoScript: \"Parsing failed\",\n        summary: item.json.output[0].content[0].text\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -320
+      ],
+      "id": "f1e13fbf-4303-47a5-8fc2-cc048b75c87f",
+      "name": "Parse Video AI Response",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.all();\nconst results = [];\n\nfor (const item of input) {\n  try {\n    // Get the AI response text\n    const rawText = item.json.output[0].content[0].text;\n    \n    // Remove markdown code fences if present\n    const cleanText = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    \n    // Parse the JSON\n    const parsed = JSON.parse(cleanText);\n    \n    // Add parsed data to the original item\n    results.push({\n      json: {\n        ...item.json,\n        summary: parsed.summary || \"No summary available\",\n        rewrittenAdCopy: parsed.rewrittenAdCopy || \"No rewrite available\"\n      }\n    });\n  } catch (error) {\n    // If parsing fails, use raw text\n    console.error(\"Image AI parsing error:\", error);\n    results.push({\n      json: {\n        ...item.json,\n        summary: item.json.output[0].content[0].text,\n        rewrittenAdCopy: \"Parsing failed\"\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        0
+      ],
+      "id": "70fb2688-1990-4e36-8f5c-b086a2254aff",
+      "name": "Parse Image AI Response",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        -320
+      ],
+      "id": "1f271e9e-72e0-4a00-970b-f0ce0f605474",
+      "name": "Loop Video Ads",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "outputFormat": "mp3"
+      },
+      "type": "@cloudconvert/n8n-nodes-cloudconvert.cloudConvert",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        -272
+      ],
+      "id": "9e5fbccb-7efe-4c54-87fd-3a5d3bf0ab64",
+      "name": "CloudConvert1",
+      "credentials": {
+        "cloudConvertOAuth2Api": {
+          "id": "P0XC7FCoTosStA1c",
+          "name": "CloudConvert account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2352,
+        -320
+      ],
+      "id": "1b67516e-0e1c-4f72-a71c-90231ae8f42d",
+      "name": "Transcribe with Whisper",
+      "retryOnFail": true,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an expert advertising analyst specializing in video advertisements.\nYour job is to analyze the transcript and provide insights.\nOutput ONLY valid JSON with no markdown fences.\n"
+            },
+            {
+              "role": "system",
+              "content": "=**Ad Metadata:**\n- Archive ID: {{ $('Loop Video Ads').item.json.ad_archive_id }}\n- Page: {{ $('Loop Video Ads').item.json.snapshot.page_name }}\n- Start Date: {{ $('Loop Video Ads').item.json.start_date_formatted }}\n- Engagement: {{ $('Loop Video Ads').item.json.advertiser.ad_library_page_info.page_info.likes }} likes\n\n**Ad Content:**\n- Body Text: {{ $('Loop Video Ads').item.json.snapshot.body?.text ?? \"No body text\" }}\n- Link Description: {{ $('Loop Video Ads').item.json.snapshot.link_description ?? \"No description\" }}\n- Call to Action: {{ $('Loop Video Ads').item.json.snapshot.cta_text ?? \"No CTA\" }}\n\n**VIDEO TRANSCRIPT:**\n{{ $json.text }}\n\n**Task:**\n1. Clean up the transcript to create a readable script.\n2. Summarize the ad's purpose and strategy\n3. Identify the target audience\n\n**Output Format (JSON):**\n{\n  \"videoScript\": \"The cleaned up transcript text\",\n  \"summary\": \"comprehensive analysis of ad strategy, target audience, and effectiveness\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        2592,
+        -320
+      ],
+      "id": "35fa8f19-8551-4fc1-856e-e04388db3780",
+      "name": "Analyze Video",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst snapshot = item.snapshot || {};\n\n// Video URLs are inside videos array\nconst videoUrl = \n  snapshot.videos?.[0]?.video_hd_url || \n  snapshot.videos?.[0]?.video_sd_url ||\n  null;\n\nif (!videoUrl) {\n  console.log('Available snapshot keys:', Object.keys(snapshot));\n  console.log('videos array:', JSON.stringify(snapshot.videos, null, 2));\n  throw new Error(`No video URL found for ad: ${item.ad_archive_id}`);\n}\n\nreturn [{\n  json: {\n    ...item,\n    videoUrl: videoUrl\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -320
+      ],
+      "id": "b37127d2-5f95-44e9-aae5-e5fd5221d527",
+      "name": "Code in JavaScript",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const displayFormat = item.json.snapshot?.display_format;\n  const hasVideoHD = !!item.json.snapshot?.video_hd_url;\n  const hasVideoSD = !!item.json.snapshot?.video_sd_url;\n  \n  console.log('Ad:', item.json.ad_archive_id);\n  console.log('  display_format:', displayFormat);\n  console.log('  has video_hd_url:', hasVideoHD);\n  console.log('  has video_sd_url:', hasVideoSD);\n  \n  // Keep ads that are NOT DCO\n  if (displayFormat !== 'DCO') {\n    results.push(item);\n  } else {\n    console.log('  FILTERED OUT (DCO)');\n  }\n}\n\nconsole.log('Input count:', items.length);\nconsole.log('Output count:', results.length);\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        -176
+      ],
+      "id": "db9f8db7-99a3-4a0e-bfd1-e158051a18e3",
+      "name": "Code in JavaScript1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst results = items.map(item => {\n  const snapshot = item.json.snapshot || {};\n  \n  // Video URLs are inside videos array\n  const videoHD = snapshot.videos?.[0]?.video_hd_url;\n  const videoSD = snapshot.videos?.[0]?.video_sd_url;\n  const imageUrl = snapshot.images?.[0]?.original_image_url;\n  \n  const hasVideo = !!(videoHD || videoSD);\n  const hasImage = !!imageUrl;\n  \n  console.log('=== Ad:', item.json.ad_archive_id, '===');\n  console.log('videoHD:', videoHD ? 'EXISTS' : 'null');\n  console.log('videoSD:', videoSD ? 'EXISTS' : 'null');\n  console.log('hasVideo:', hasVideo);\n  console.log('hasImage:', hasImage);\n  \n  return {\n    json: {\n      ...item.json,\n      hasVideo,\n      hasImage\n    }\n  };\n});\n\nconsole.log('Total items output:', results.length);\nconsole.log('Videos:', results.filter(r => r.json.hasVideo).length);\nconsole.log('Images:', results.filter(r => r.json.hasImage).length);\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        -176
+      ],
+      "id": "8d3b597d-41b1-427f-9370-7429785ce36c",
+      "name": "Code in JavaScript2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Loop Video Ads').item.json.ad_archive_id }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_DRIVE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Ad Video Backup",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_DRIVE_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2208,
+        -432
+      ],
+      "id": "3ccfe54d-e9d5-4663-859e-830dff2e1849",
+      "name": "Google Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "CGx0yuEHrPkHZ874",
+          "name": "Google Drive account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "# Wokflow 1\n\n### Triggered by: Slack message with an Ad Library URL.\n\n### Process: Scrapes Facebook ads, uses AI (Whisper) to analyze video/image creatives, and logs the detailed insights (scripts, summaries, rewrites) to Google Sheets, finishing with a Slack notification.",
+        "height": 240,
+        "width": 592
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        48,
+        -464
+      ],
+      "typeVersion": 1,
+      "id": "65516479-3e0d-4ed1-bb1f-9c519204a8a0",
+      "name": "Sticky Note2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3104,
+        -368
+      ],
+      "id": "76b89b4f-b1ad-432a-9961-f21326b58976",
+      "name": "Merge",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "XtaWFhbtfxyzqrFmd",
+          "mode": "list",
+          "cachedResultName": "Facebook Ad Library Scraper (curious_coder/facebook-ads-library-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/XtaWFhbtfxyzqrFmd/input"
+        },
+        "customBody": "={\n       \"count\": 500,\n       \"scrapeAdDetails\": true,\n       \"scrapePageAds\": {\n           \"activeStatus\": \"all\",\n           \"countryCode\": \"ALL\"\n       },\n       \"urls\": [\n           {\n               \"url\": \"{{ $json.facebook_url }}\"\n           }\n       ]\n   }",
+        "timeout": {},
+        "memory": 512,
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1104
+      ],
+      "id": "c61c3742-4317-48b2-8854-030082984c9e",
+      "name": "Step 1 - Scrape 20 Ads1",
+      "retryOnFail": true,
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "UHiUBFpjGojXEfb1",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FIXED: Get OLDEST ads from 500 scraped\nconst items = $input.all();\n\nconsole.log('=== PROCESSING', items.length, 'ADS ===');\n\n// Helper function to format Unix timestamp to readable date\nfunction formatDate(timestamp) {\n  if (!timestamp) return 'Unknown';\n  \n  // If already formatted\n  if (typeof timestamp === 'string' && timestamp.includes('-') && timestamp.length < 20) {\n    return timestamp;\n  }\n  \n  // SAFETY: Handle corrupted repeated timestamps\n  let cleanTs = timestamp;\n  if (typeof timestamp === 'string' && timestamp.length > 13) {\n    cleanTs = timestamp.substring(0, 13);\n  }\n  \n  const ts = Number(cleanTs);\n  if (isNaN(ts) || ts <= 0) return 'Unknown';\n  \n  const date = ts > 10000000000 ? new Date(ts) : new Date(ts * 1000);\n  \n  if (isNaN(date.getTime())) return 'Unknown';\n  \n  const year = date.getFullYear();\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const day = String(date.getDate()).padStart(2, '0');\n  \n  return `${year}-${month}-${day}`;\n}\n\n// Helper function to get sortable timestamp - FIXED VERSION\nfunction getSortableTimestamp(item) {\n  const possibleFields = [\n    item.json.ad_delivery_start_time,\n    item.json.start_date,\n    item.json.startDate,\n    item.json.snapshot?.start_date,\n    item.json.snapshot?.startDate,\n    item.json.ad_start_date,\n    item.json.delivery_start_time,\n    item.json.delivery_by_region?.[0]?.start_date\n  ];\n  \n  let rawStartDate = null;\n  for (const field of possibleFields) {\n    if (field !== null && field !== undefined && field !== '') {\n      rawStartDate = field;\n      break;\n    }\n  }\n  \n  if (!rawStartDate) {\n    return 9999999999999; // No date = put at end\n  }\n  \n  // SAFETY: If it's a corrupted repeated string, take only first 10-13 digits\n  let cleanValue = String(rawStartDate);\n  if (cleanValue.length > 13) {\n    cleanValue = cleanValue.substring(0, 13);\n  }\n  \n  const ts = Number(cleanValue);\n  if (!isNaN(ts) && ts > 0) {\n    // Convert to milliseconds if in seconds\n    return ts > 10000000000 ? ts : ts * 1000;\n  }\n  \n  // Try parsing as date string\n  const date = new Date(rawStartDate);\n  if (!isNaN(date.getTime())) {\n    return date.getTime();\n  }\n  \n  return 9999999999999;\n}\n\n// Process all ads\nconst processedAds = items.map(item => {\n  const snapshot = item.json.snapshot || {};\n  \n  const videoHD = snapshot.videos?.[0]?.video_hd_url;\n  const videoSD = snapshot.videos?.[0]?.video_sd_url;\n  const imageUrl = snapshot.images?.[0]?.original_image_url || snapshot.cards?.[0]?.original_image_url;\n  \n  const hasVideo = !!(videoHD || videoSD);\n  const hasImage = !!imageUrl;\n  \n  const adsUsingCreative = \n    item.json.collation_count ||\n    item.json.collationCount ||\n    item.json.ad_count ||\n    item.json.number_of_ads ||\n    snapshot.collation_count ||\n    1;\n  \n  const sortTimestamp = getSortableTimestamp(item);\n  const startDateFormatted = formatDate(sortTimestamp);\n  \n  return {\n    json: {\n      ...item.json,\n      hasVideo,\n      hasImage,\n      adsUsingCreative,\n      startDateFormatted,\n      sortTimestamp\n    }\n  };\n});\n\n// FILTER: Keep only multi-instance ads (>1)\nconst multiInstanceAds = processedAds.filter(item => item.json.adsUsingCreative > 1);\n\nconsole.log('\\n=== SUMMARY ===');\nconsole.log('Total ads scraped:', items.length);\nconsole.log('Multi-instance ads (>1):', multiInstanceAds.length);\n\n// SORT: By OLDEST start date first (ascending - smallest timestamp first)\nmultiInstanceAds.sort((a, b) => {\n  return a.json.sortTimestamp - b.json.sortTimestamp;\n});\n\n// DEBUG: Show oldest 15 ads\nconsole.log('\\n=== TOP 15 OLDEST ADS ===');\nmultiInstanceAds.slice(0, 15).forEach((ad, idx) => {\n  console.log(`${idx + 1}. ${ad.json.startDateFormatted} | ID: ${ad.json.ad_archive_id} | Uses: ${ad.json.adsUsingCreative}`);\n});\n\n// TAKE: First 10 OLDEST ads\nconst top10 = multiInstanceAds.slice(0, 10);\n\nconsole.log('\\n=== FINAL 10 OLDEST ADS ===');\ntop10.forEach((ad, idx) => {\n  console.log(`${idx + 1}. ${ad.json.startDateFormatted} (ID: ${ad.json.ad_archive_id}, Uses: ${ad.json.adsUsingCreative})`);\n});\n\n// Store count for fallback check\nif (top10.length > 0) {\n  top10[0].json._totalSelected = top10.length;\n  top10[0].json._needsFallback = top10.length < 10;\n}\n\nreturn top10.length > 0 ? top10 : [{ json: { _totalSelected: 0, _needsFallback: true, _empty: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        1104
+      ],
+      "id": "427aa22c-25ad-4ab2-9f38-2f33171a4549",
+      "name": "Step 2 - Filter Sort Top"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-need-fallback",
+              "leftValue": "={{ $json._needsFallback }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        288,
+        1104
+      ],
+      "id": "70742747-c5fb-4f17-afc6-65479ee72396",
+      "name": "Need Fallback?1"
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "XtaWFhbtfxyzqrFmd",
+          "mode": "list",
+          "cachedResultName": "Facebook Ad Library Scraper (curious_coder/facebook-ads-library-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/XtaWFhbtfxyzqrFmd/input"
+        },
+        "customBody": "={\n    \"count\": 500,\n    \"scrapeAdDetails\": true,\n    \"scrapePageAds\": {\n        \"activeStatus\": \"all\",\n        \"countryCode\": \"ALL\"\n    },\n    \"urls\": [\n        {\n            \"url\": \"{{ $('Extract Facebook URL2').first().json.facebook_url }}\"\n        }\n    ]\n}",
+        "timeout": {},
+        "memory": 512,
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        528,
+        1248
+      ],
+      "id": "3a3a9501-07b1-4216-9a9c-0c0872334e85",
+      "name": "Fallback - Scrape 50 Ads1",
+      "retryOnFail": true,
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "UHiUBFpjGojXEfb1",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FALLBACK: Same logic but with larger pool\n// If still not enough multi-instance, fill with oldest single-instance\n\nconst items = $input.all();\n\nfunction formatDate(timestamp) {\n  if (!timestamp) return 'Unknown';\n  \n  if (typeof timestamp === 'string' && timestamp.includes('-')) {\n    return timestamp;\n  }\n  \n  const ts = Number(timestamp);\n  let date;\n  if (ts > 10000000000) {\n    date = new Date(ts);\n  } else {\n    date = new Date(ts * 1000);\n  }\n  \n  const year = date.getFullYear();\n  const month = String(date.getMonth() + 1).padStart(2, '0');\n  const day = String(date.getDate()).padStart(2, '0');\n  \n  return `${year}-${month}-${day}`;\n}\n\n// Process all ads\nconst processedAds = items.map(item => {\n  const snapshot = item.json.snapshot || {};\n  \n  const videoHD = snapshot.videos?.[0]?.video_hd_url;\n  const videoSD = snapshot.videos?.[0]?.video_sd_url;\n  const imageUrl = snapshot.images?.[0]?.original_image_url || snapshot.cards?.[0]?.original_image_url;\n  \n  const hasVideo = !!(videoHD || videoSD);\n  const hasImage = !!imageUrl;\n  \n  const adsUsingCreative = \n    item.json.collation_count ||\n    item.json.collationCount ||\n    item.json.ad_count ||\n    item.json.number_of_ads ||\n    snapshot.collation_count ||\n    1;\n  \n  const rawStartDate = item.json.start_date || item.json.startDate || item.json.ad_delivery_start_time;\n  const startDateFormatted = formatDate(rawStartDate);\n  \n  return {\n    json: {\n      ...item.json,\n      hasVideo,\n      hasImage,\n      adsUsingCreative,\n      startDateFormatted,\n      rawStartDate\n    }\n  };\n});\n\n// Separate multi-instance and single-instance\nconst multiInstanceAds = processedAds.filter(item => item.json.adsUsingCreative > 1);\nconst singleInstanceAds = processedAds.filter(item => item.json.adsUsingCreative <= 1);\n\nconsole.log('Fallback - Total ads:', items.length);\nconsole.log('Fallback - Multi-instance:', multiInstanceAds.length);\nconsole.log('Fallback - Single-instance:', singleInstanceAds.length);\n\n// Sort both by oldest first\nmultiInstanceAds.sort((a, b) => {\n  const dateA = new Date(a.json.startDateFormatted || '9999-12-31');\n  const dateB = new Date(b.json.startDateFormatted || '9999-12-31');\n  return dateA - dateB;\n});\n\nsingleInstanceAds.sort((a, b) => {\n  const dateA = new Date(a.json.startDateFormatted || '9999-12-31');\n  const dateB = new Date(b.json.startDateFormatted || '9999-12-31');\n  return dateA - dateB;\n});\n\n// Take multi-instance first, then fill with single-instance if needed\nlet finalAds = [...multiInstanceAds];\n\nif (finalAds.length < 10) {\n  const needed = 10 - finalAds.length;\n  const fillers = singleInstanceAds.slice(0, needed);\n  finalAds = [...finalAds, ...fillers];\n  console.log('Filled with', fillers.length, 'single-instance ads');\n}\n\n// Take only 10\nconst top10 = finalAds.slice(0, 10);\n\nconsole.log('Final count:', top10.length);\n\nreturn top10;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        1248
+      ],
+      "id": "675b60da-d4e9-4146-91f1-a0a86f55b6fc",
+      "name": "Fallback - Filter Sort Top"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        928,
+        1104
+      ],
+      "id": "f2afbed5-48fa-4d92-9efd-b6a8bb2810e5",
+      "name": "Merge Results1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter out DCO ads and ensure we have valid ads\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  // Skip empty/placeholder items\n  if (item.json._empty) continue;\n  \n  const displayFormat = item.json.snapshot?.display_format;\n  \n  // Keep ads that are NOT DCO\n  if (displayFormat !== 'DCO') {\n    results.push(item);\n  } else {\n    console.log('Filtered out DCO ad:', item.json.ad_archive_id);\n  }\n}\n\nconsole.log('After DCO filter:', results.length);\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        1104
+      ],
+      "id": "95185134-5dd7-42ad-a68c-23fca6abfcb5",
+      "name": "Filter DCO Ads1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.hasVideo }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "273e5d0e-74cb-48a7-9e9a-7c24ef7d59d8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Videos"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3511321f-60ac-452c-a4c8-758454dfd048",
+                    "leftValue": "={{ $json.hasImage }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Images"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1904,
+        1104
+      ],
+      "id": "8b13a9e6-987e-4af3-ba78-cf370b0dc58f",
+      "name": "Switch2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 10253367,
+          "mode": "list",
+          "cachedResultName": "prioritized",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=10253367"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "archive ID": "={{ $('Loop Video Ads2').item.json.ad_archive_id }}",
+            "Page Name": "={{ $('Loop Video Ads2').item.json.snapshot.page_name }}",
+            "Page URL": "={{ $('Loop Video Ads2').item.json.snapshot.page_profile_uri}}",
+            "Type": "Video",
+            "Summary": "={{ $json.summary }}",
+            "Video Script": "={{ $json.videoScript }}",
+            "Link": "={{ $('Loop Video Ads2').item.json.ad_library_url }}",
+            "Video Backup": "={{ $json.webViewLink }}",
+            "Start Date": "={{ $('Loop Video Ads2').item.json.startDateFormatted }}",
+            "Ads Using This Creative": "={{ $('Loop Video Ads2').item.json.adsUsingCreative }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "archive ID",
+              "displayName": "archive ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page Name",
+              "displayName": "Page Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page URL",
+              "displayName": "Page URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Start Date",
+              "displayName": "Start Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Video Backup",
+              "displayName": "Video Backup",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Video Script",
+              "displayName": "Video Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Ads Using This Creative",
+              "displayName": "Ads Using This Creative",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4384,
+        944
+      ],
+      "id": "887ec8bf-d30d-46d1-85d2-5b94a1ab5b09",
+      "name": "Append row in sheet4",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2PRO0jKj17cJr93f",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 10253367,
+          "mode": "list",
+          "cachedResultName": "prioritized",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=10253367"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "archive ID": "={{ $('Loop Image Ads2').item.json.ad_archive_id }}",
+            "Page Name": "={{ $('Loop Image Ads2').item.json.snapshot.page_name }}",
+            "Page URL": "={{ $('Loop Image Ads2').item.json.snapshot.page_profile_uri }}",
+            "Type": "Image",
+            "Summary": "={{ $json.summary }}",
+            "Link": "={{ $('Loop Image Ads2').item.json.ad_library_url }}",
+            "Start Date": "={{ $('Loop Image Ads2').item.json.startDateFormatted }}",
+            "Ads Using This Creative": "={{ $('Loop Image Ads2').item.json.adsUsingCreative }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "archive ID",
+              "displayName": "archive ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page Name",
+              "displayName": "Page Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Page URL",
+              "displayName": "Page URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Start Date",
+              "displayName": "Start Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Video Backup",
+              "displayName": "Video Backup",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Video Script",
+              "displayName": "Video Script",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Ads Using This Creative",
+              "displayName": "Ads Using This Creative",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4320,
+        1264
+      ],
+      "id": "9de1da3e-3187-4fdc-b248-50d2367870fc",
+      "name": "Append row in sheet5",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2PRO0jKj17cJr93f",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.snapshot.images?.[0]?.original_image_url || $json.snapshot.cards?.[0]?.original_image_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3056,
+        1264
+      ],
+      "id": "cb3dc0a6-2108-42a8-ae69-013f8ae7a922",
+      "name": "Download image2",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2592,
+        1264
+      ],
+      "id": "ec05feb6-5d16-4a67-9ff1-6afb01d761fb",
+      "name": "Loop Image Ads2"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "text": "What's in this image? Be specific and comprehensive.",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3248,
+        1264
+      ],
+      "id": "9a80e70d-f832-440f-9cac-f499b48bcebf",
+      "name": "Analyze image2",
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# STEP 1: SCRAPE 20 ADS",
+        "width": 400,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -368,
+        1264
+      ],
+      "typeVersion": 1,
+      "id": "a69d2d81-b9ce-4e2b-b4d5-eb05f8a0e263",
+      "name": "Sticky Note Step"
+    },
+    {
+      "parameters": {
+        "content": "# STEP 2: FILTER & SORT\n- Keep only multi-instance (>1)\n- Sort by oldest date\n- Take top 10",
+        "height": 200,
+        "width": 400,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -96,
+        864
+      ],
+      "typeVersion": 1,
+      "id": "7434bd90-bb7a-490f-beb2-530e2bc74f62",
+      "name": "Sticky Note Step3"
+    },
+    {
+      "parameters": {
+        "content": "# FALLBACK\nIf < 10 multi-instance ads:\n- Scrape 50 ads\n- Fill remaining with oldest single-instance",
+        "height": 200,
+        "width": 500,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        528,
+        1440
+      ],
+      "typeVersion": 1,
+      "id": "e3063d36-ae9c-4e4d-b743-d5c4dc87cc09",
+      "name": "Sticky Note Fallback1"
+    },
+    {
+      "parameters": {
+        "content": "# SCRAPE VIDEOS",
+        "height": 304,
+        "width": 2432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2128,
+        832
+      ],
+      "typeVersion": 1,
+      "id": "1159671e-3b3b-4377-a992-63d3353f1214",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "# SCRAPE IMAGES",
+        "height": 320,
+        "width": 2432,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2128,
+        1152
+      ],
+      "typeVersion": 1,
+      "id": "e3646caa-48e8-43f2-b3d7-10b8a7108554",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "n8n-ad-library-scraper"
+        },
+        "text": "=✅ *Ad Scraping Complete!*\n\n📊 *Summary:*\n- Priority: Multi-instance ads (2+ ads use this creative)\n- Sorted by: Oldest/longest running first\n\n🔗 *View Results:*\n<https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?gid=10253367#gid=10253367>",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        5248,
+        1104
+      ],
+      "id": "23a29041-15f9-4846-8641-b144c7df2972",
+      "name": "Send a message2",
+      "webhookId": "90265553-982f-4609-a474-5d5f11ee25fc",
+      "credentials": {
+        "slackApi": {
+          "id": "L6mpLZFh4sLliwGY",
+          "name": "Slack account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert Facebook ad analyst specializing in image advertisements.\n\nYour task:\n1. Analyze the ad's visual strategy and messaging\n2. Identify target audience and effectiveness factors\n3. Provide a rewritten version of the ad copy\n\nOutput ONLY valid JSON with no markdown fences:\n{\n  \"summary\": \"detailed analysis of visual strategy, target audience, and effectiveness\",\n  \"rewrittenAdCopy\": \"improved ad copy\"\n}\n\nStyle rules:\n- Be analytical and precise\n- Use casual abbreviations (San Francisco → SF)\n- No rhetorical questions\n- No hedging language"
+            },
+            {
+              "content": "=Ad Metadata:\n- Archive ID: {{ $('Loop Image Ads2').item.json.ad_archive_id }}\n- Page: {{ $('Loop Image Ads2').item.json.snapshot.page_name }}\n- Date: {{ $('Loop Image Ads2').item.json.startDateFormatted }}\n- Engagement: {{ $('Loop Image Ads2').item.json.advertiser.ad_library_page_info.page_info.likes }} likes\n- Ads Using This Creative: {{ $('Loop Image Ads2').item.json.adsUsingCreative }}\n\nAd Text Content:\n- Body: {{ $('Loop Image Ads2').item.json.snapshot.body?.text ?? \"No body text\" }}\n- Link Description: {{ $('Loop Image Ads2').item.json.snapshot.link_description ?? \"No description\" }}\n- CTA: {{ $('Loop Image Ads2').item.json.snapshot.cta_text ?? \"No CTA\" }}\n\nVisual Analysis (from image):\n{{ $json.output[0].content[0].text }}\n\nAnalyze this ad and provide your response in JSON format."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3696,
+        1264
+      ],
+      "id": "715b8696-12d3-4943-beef-5d1393f78a7f",
+      "name": "Summary and Re Write2",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "trigger": [
+          "app_mention",
+          "any_event"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "list",
+          "cachedResultName": "n8n-ad-library-scraper"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        1104
+      ],
+      "id": "41c22d5d-2e27-4c82-8195-ef801dee500a",
+      "name": "Slack Trigger2",
+      "webhookId": "427913ac-a35b-4176-a45c-52058dd92018",
+      "credentials": {
+        "slackApi": {
+          "id": "L6mpLZFh4sLliwGY",
+          "name": "Slack account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.text;\n\nconst urlMatch = message.match(/<(https:\\/\\/www.facebook.com\\/ads\\/library\\/[^|>]+)/i);\n\nif (urlMatch) {\n    const rawUrl = urlMatch[1];\n    const cleanUrl = rawUrl.replace(/&amp;/g, '&');\n    return [{ json: { facebook_url: cleanUrl } }];\n}\n\nreturn [{ json: { facebook_url: null, error: 'No valid Facebook Ad Library URL found in Slack message.' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        1104
+      ],
+      "id": "10551c2a-6a33-4add-8ecf-3ad946cde04a",
+      "name": "Extract Facebook URL2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.videoUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2544,
+        928
+      ],
+      "id": "0e7d4c7f-5821-477a-9d37-359d30ce20a4",
+      "name": "Download video2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        5024,
+        1104
+      ],
+      "id": "61b8df2d-601c-4ad9-88f7-9eb88aad984e",
+      "name": "Aggregate2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.all();\nconst results = [];\n\nfor (const item of input) {\n  try {\n    const rawText = item.json.output[0].content[0].text;\n    const cleanText = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    const parsed = JSON.parse(cleanText);\n    \n    results.push({\n      json: {\n        ...item.json,\n        videoScript: parsed.videoScript || \"No script available\",\n        summary: parsed.summary || \"No summary available\"\n      }\n    });\n  } catch (error) {\n    results.push({\n      json: {\n        ...item.json,\n        videoScript: \"Parsing failed\",\n        summary: item.json.output[0].content[0].text\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3952,
+        944
+      ],
+      "id": "43a586e4-d53d-4cd5-904c-482bf7bf3a63",
+      "name": "Parse Video AI Response2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.all();\nconst results = [];\n\nfor (const item of input) {\n  try {\n    const rawText = item.json.output[0].content[0].text;\n    const cleanText = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n    const parsed = JSON.parse(cleanText);\n    \n    results.push({\n      json: {\n        ...item.json,\n        summary: parsed.summary || \"No summary available\",\n        rewrittenAdCopy: parsed.rewrittenAdCopy || \"No rewrite available\"\n      }\n    });\n  } catch (error) {\n    console.error(\"Image AI parsing error:\", error);\n    results.push({\n      json: {\n        ...item.json,\n        summary: item.json.output[0].content[0].text,\n        rewrittenAdCopy: \"Parsing failed\"\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        1264
+      ],
+      "id": "a34bb3c7-2b47-460c-9822-e4bfd78231c6",
+      "name": "Parse Image AI Response2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2176,
+        944
+      ],
+      "id": "7ee49b47-383b-4cda-96d4-26abe16df2c4",
+      "name": "Loop Video Ads2"
+    },
+    {
+      "parameters": {
+        "outputFormat": "mp3"
+      },
+      "type": "@cloudconvert/n8n-nodes-cloudconvert.cloudConvert",
+      "typeVersion": 1,
+      "position": [
+        3552,
+        992
+      ],
+      "id": "85e5bc7a-44aa-4686-b8bd-01565bfa3965",
+      "name": "CloudConvert2",
+      "credentials": {
+        "cloudConvertOAuth2Api": {
+          "id": "P0XC7FCoTosStA1c",
+          "name": "CloudConvert account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "=data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3424,
+        944
+      ],
+      "id": "4fea1b27-9979-415a-bd7c-8aa3454a12d6",
+      "name": "Transcribe with Whisper2",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an expert advertising analyst specializing in video advertisements.\nYour job is to analyze the transcript and provide insights.\nOutput ONLY valid JSON with no markdown fences.\n"
+            },
+            {
+              "role": "system",
+              "content": "=**Ad Metadata:**\n- Archive ID: {{ $('Loop Video Ads2').item.json.ad_archive_id }}\n- Page: {{ $('Loop Video Ads2').item.json.snapshot.page_name }}\n- Start Date: {{ $('Loop Video Ads2').item.json.startDateFormatted }}\n- Engagement: {{ $('Loop Video Ads2').item.json.advertiser.ad_library_page_info.page_info.likes }} likes\n- Ads Using This Creative: {{ $('Loop Video Ads2').item.json.adsUsingCreative }}\n\n**Ad Content:**\n- Body Text: {{ $('Loop Video Ads2').item.json.snapshot.body?.text ?? \"No body text\" }}\n- Link Description: {{ $('Loop Video Ads2').item.json.snapshot.link_description ?? \"No description\" }}\n- Call to Action: {{ $('Loop Video Ads2').item.json.snapshot.cta_text ?? \"No CTA\" }}\n\n**VIDEO TRANSCRIPT:**\n{{ $json.text }}\n\n**Task:**\n1. Clean up the transcript to create a readable script.\n2. Summarize the ad's purpose and strategy\n3. Identify the target audience\n\n**Output Format (JSON):**\n{\n  \"videoScript\": \"The cleaned up transcript text\",\n  \"summary\": \"comprehensive analysis of ad strategy, target audience, and effectiveness\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3664,
+        944
+      ],
+      "id": "6abcd7ad-3f56-4587-8494-21be4dcef1ef",
+      "name": "Analyze Video2",
+      "credentials": {
+        "openAiApi": {
+          "id": "Qt07mZXBPC45bSkC",
+          "name": "OpenAi account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst snapshot = item.snapshot || {};\n\nconst videoUrl = \n  snapshot.videos?.[0]?.video_hd_url || \n  snapshot.videos?.[0]?.video_sd_url ||\n  null;\n\nif (!videoUrl) {\n  console.log('Available snapshot keys:', Object.keys(snapshot));\n  console.log('videos array:', JSON.stringify(snapshot.videos, null, 2));\n  throw new Error(`No video URL found for ad: ${item.ad_archive_id}`);\n}\n\nreturn [{\n  json: {\n    ...item,\n    videoUrl: videoUrl\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        944
+      ],
+      "id": "9e0d82cb-24c2-49f7-a1b3-7f1f0fb04312",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Loop Video Ads2').item.json.ad_archive_id }}.mp4",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_DRIVE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Ad Video Backup",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_DRIVE_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3280,
+        832
+      ],
+      "id": "85299714-938a-4857-99f5-41d09c6dda3c",
+      "name": "Google Drive2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "CGx0yuEHrPkHZ874",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# Workflow 2 - Smart Ad Selection\n\n### Logic:\n1. **Scrape 20 ads** (initial pool)\n2. **Filter**: Keep only ads where \"Ads Using This Creative\" > 1\n3. **Sort**: By oldest start date (longest running)\n4. **Take**: First 10\n5. **Fallback**: If < 10, scrape 50 ads and fill remaining slots\n\n### Result: Always 10 ads, prioritizing:\n- Multi-instance creatives (reused ads)\n- Longest running ads\n\n### FIX: Changed .item to .first() in Fallback node",
+        "height": 380,
+        "width": 448,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -656,
+        688
+      ],
+      "typeVersion": 1,
+      "id": "9799eb54-d724-4a1a-97e4-70dd5f453941",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4176,
+        896
+      ],
+      "id": "4f647285-eaa1-4f7c-ae11-1384bfd6c5e8",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 10253367,
+          "mode": "list",
+          "cachedResultName": "prioritized",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=10253367"
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        1104
+      ],
+      "id": "61d83d4a-767e-4f02-9a43-5fb338c7552e",
+      "name": "Get Existing IDs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2PRO0jKj17cJr93f",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the ads from Filter DCO Ads1\nconst ads = $('Filter DCO Ads1').all();\n\n// Get existing archive IDs from Google Sheet\nconst existingRows = $('Get Existing IDs').all();\nconst existingIds = new Set(\n  existingRows\n    .map(row => String(row.json['archive ID'] || row.json['archive_id'] || ''))\n    .filter(id => id && id !== '')\n);\n\nconsole.log('Existing IDs in sheet:', existingIds.size);\n\n// Filter out ads that already exist\nconst newAds = ads.filter(ad => {\n  const adId = String(ad.json.ad_archive_id || '');\n  const exists = existingIds.has(adId);\n  if (exists) {\n    console.log('Skipping existing ad:', adId);\n  }\n  return !exists;\n});\n\nconsole.log('New ads to process:', newAds.length, '/', ads.length);\n\nif (newAds.length === 0) {\n  console.log('No new ads to process!');\n  return [{ json: { _noNewAds: true, message: 'All ads already exist in sheet' } }];\n}\n\nreturn newAds;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        1104
+      ],
+      "id": "47f75da0-9c13-4e43-a820-6447591c4064",
+      "name": "Filter Existing Ads"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfor (const item of items) {\n  const binaryKeys = Object.keys(item.binary || {});\n  \n  for (const key of binaryKeys) {\n    if (item.binary[key]) {\n      // Force correct video mime type and extension\n      item.binary[key].mimeType = 'video/mp4';\n      item.binary[key].fileExtension = 'mp4';\n      \n      // Fix filename\n      const adId = $('Loop Video Ads2').item.json.ad_archive_id;\n      item.binary[key].fileName = `${adId}.mp4`;\n      \n      console.log('Fixed binary:', item.binary[key].fileName, '| mimeType:', item.binary[key].mimeType);\n    }\n  }\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        928
+      ],
+      "id": "6dee63b4-444a-4b9a-adb5-ad0695f9cb3c",
+      "name": "Fix Video Binary"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Scrape Ads": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Loop Video Ads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Image Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download image": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Image Ads": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "Summary and Re Write1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Video Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Loop Image Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Summary and Re Write1": {
+      "main": [
+        [
+          {
+            "node": "Parse Image AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Facebook URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Facebook URL": {
+      "main": [
+        [
+          {
+            "node": "Scrape Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download video": {
+      "main": [
+        [
+          {
+            "node": "CloudConvert1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Video AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse Image AI Response": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Video Ads": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CloudConvert1": {
+      "main": [
+        [
+          {
+            "node": "Transcribe with Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Video": {
+      "main": [
+        [
+          {
+            "node": "Parse Video AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe with Whisper": {
+      "main": [
+        [
+          {
+            "node": "Analyze Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Download video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 1 - Scrape 20 Ads1": {
+      "main": [
+        [
+          {
+            "node": "Step 2 - Filter Sort Top",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 2 - Filter Sort Top": {
+      "main": [
+        [
+          {
+            "node": "Need Fallback?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Fallback?1": {
+      "main": [
+        [
+          {
+            "node": "Fallback - Scrape 50 Ads1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback - Scrape 50 Ads1": {
+      "main": [
+        [
+          {
+            "node": "Fallback - Filter Sort Top",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback - Filter Sort Top": {
+      "main": [
+        [
+          {
+            "node": "Merge Results1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Results1": {
+      "main": [
+        [
+          {
+            "node": "Filter DCO Ads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter DCO Ads1": {
+      "main": [
+        [
+          {
+            "node": "Get Existing IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch2": {
+      "main": [
+        [
+          {
+            "node": "Loop Video Ads2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Image Ads2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet4": {
+      "main": [
+        [
+          {
+            "node": "Loop Video Ads2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet5": {
+      "main": [
+        [
+          {
+            "node": "Loop Image Ads2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download image2": {
+      "main": [
+        [
+          {
+            "node": "Analyze image2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Image Ads2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download image2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image2": {
+      "main": [
+        [
+          {
+            "node": "Summary and Re Write2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary and Re Write2": {
+      "main": [
+        [
+          {
+            "node": "Parse Image AI Response2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Extract Facebook URL2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Facebook URL2": {
+      "main": [
+        [
+          {
+            "node": "Step 1 - Scrape 20 Ads1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download video2": {
+      "main": [
+        [
+          {
+            "node": "Google Drive2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fix Video Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate2": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Video AI Response2": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse Image AI Response2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Video Ads2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CloudConvert2": {
+      "main": [
+        [
+          {
+            "node": "Transcribe with Whisper2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe with Whisper2": {
+      "main": [
+        [
+          {
+            "node": "Analyze Video2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Video2": {
+      "main": [
+        [
+          {
+            "node": "Parse Video AI Response2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Download video2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive2": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing IDs": {
+      "main": [
+        [
+          {
+            "node": "Filter Existing Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Existing Ads": {
+      "main": [
+        [
+          {
+            "node": "Switch2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fix Video Binary": {
+      "main": [
+        [
+          {
+            "node": "CloudConvert2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "f27e02bb-2f1f-42f9-9101-d6d5f7232b7e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b4119efdbcc01fd38f59d9a4b7e4d66849cc5e3fc50dadd0e25768e4ef825087"
+  },
+  "id": "FaejEacWPTKvAShj",
+  "tags": []
+}
