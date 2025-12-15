@@ -34,4 +34,6 @@ Scrapes competitor ads from Facebook Ad Library, analyzes them with AI, and save
 ## Usage
 
 Send a Slack message with a Facebook Ad Library URL:
-```@bot https://www.facebook.com/ads/library/?id=123456789```
+```
+@bot https://www.facebook.com/ads/library/?id=123456789
+```
