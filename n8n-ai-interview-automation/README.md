@@ -5,7 +5,7 @@ Automates candidate screening and AI-powered interviews, sends follow-up reminde
 ## What It Does
 
 1. Triggered on schedule (every 6 hours for new candidates, every 12 hours for follow-ups)
-2. Fetches candidates from Google Sheets who completed HireSelect assessment + Google Form
+2. Fetches candidates from Google Sheets who completed HR Select assessment + Google Form
 3. Filters for candidates waiting 2+ days (cooling period)
 4. Creates personalized AI interview links via Oration API
 5. Sends interview invitation emails via Brevo
@@ -43,7 +43,7 @@ Automates candidate screening and AI-powered interviews, sends follow-up reminde
 | Email | Candidate email (matching key) |
 | First Name | Candidate name |
 | Timestamp | Form submission date |
-| Hire Select Status | Must be "HS Done" |
+| HR Select Status | Must be "HS Done" |
 | Google Form Status | Must be "Google Form Filled" |
 | AI Interview Status | Updated by workflow |
 | Link to AI Interview | Hyperlink to AI Interview sheet |
@@ -62,7 +62,7 @@ Automates candidate screening and AI-powered interviews, sends follow-up reminde
 ## Usage
 
 The workflow runs automatically on schedule. Candidates are processed when:
-- HireSelect assessment is complete
+- HR Select assessment is complete
 - Google Form is filled
 - 2+ days have passed since submission
 - No interview has been scheduled yet
