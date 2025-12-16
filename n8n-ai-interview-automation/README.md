@@ -18,7 +18,7 @@ Automates candidate screening and AI-powered interviews, sends follow-up reminde
 
 - Google Sheets (OAuth2)
 - Brevo (SMTP API)
-- Oration AI (API key + Workspace ID)
+- Oration AI (API key and Workspace ID)
 - WATI (optional, for WhatsApp)
 
 ## Setup
