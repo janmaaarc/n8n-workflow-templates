@@ -1,0 +1,958 @@
+{
+  "name": "HR Recruitment Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## SEND INTERVIEW EMAIL FLOW\n\n### Purpose: Automatically sends AI interview invitations to qualified candidates\n\n### Who gets invited:\n- Completed HireSelect assessment\n- Filled out Google Form application\n- No Summary yet (not assessed)\n- 2+ days since form submission\n\n### What happens:\n- Creates personalized AI interview link\n- Sends email with interview instructions\n- Updates Candidates sheet and AI Interview sheet\n- Skips duplicates (checks status column)",
+        "height": 400,
+        "width": 640
+      },
+      "id": "1e585d4c-9644-46ca-9a30-b10bff7704fe",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-1664, 2192],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.oration.ai/api/v2/conversations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "YOUR_ORATION_API_KEY"
+            },
+            {
+              "name": "x-workspace-id",
+              "value": "YOUR_ORATION_WORKSPACE_ID"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [592, 2256],
+      "id": "641467bf-ece8-416a-907f-a785a3a751e5",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643507752,
+          "mode": "list",
+          "cachedResultName": "AI Interview",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643507752"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-496, 2816],
+      "id": "1c433f04-8960-46d5-8abb-640cb1d78be0",
+      "name": "Get All Candidates",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// CHECK INTERVIEW FOLLOW-UP ELIGIBILITY & PREPARE UPDATES\n// ========================================\n\nconst rows = $input.all();\nconst eligibleCandidates = [];\nconst now = new Date();\n\n// Follow-up timing configuration (in hours)\nconst FIRST_FOLLOWUP = 48;   // 48 hours (2 days)\nconst SECOND_FOLLOWUP = 96;  // 96 hours (4 days)\nconst THIRD_FOLLOWUP = 144;  // 144 hours (6 days)\n\nfor (const row of rows) {\n  const data = row.json;\n  \n  // Get email and validate\n  const email = data['Candidate Email'] || '';\n  \n  // Skip invalid emails\n  if (!email || \n      email === 'empty' || \n      email.includes('#ERROR') || \n      email.includes('()') ||\n      !email.includes('@')) {\n    console.log(`Skipping row - invalid email: ${email}`);\n    continue;\n  }\n  \n  // Skip rows without candidate name\n  const candidateName = data['Candidate Name'] || '';\n  if (!candidateName || candidateName === 'empty') {\n    console.log(`Skipping row - no candidate name`);\n    continue;\n  }\n  \n  // Skip rows without interview date\n  const interviewDateStr = data['Interview Date'] || '';\n  if (!interviewDateStr || interviewDateStr === 'empty') {\n    console.log(`Skipping row - no interview date`);\n    continue;\n  }\n  \n  // Check if interview hasn't been completed\n  const isIncomplete = !data['Duration (minutes)'] || \n                       !data['Call ID'] || \n                       !data['Analyzed On'] ||\n                       data['Duration (minutes)'] === 'empty' ||\n                       data['Call ID'] === 'empty' ||\n                       data['Analyzed On'] === 'empty';\n  \n  // Skip if interview is already completed\n  if (!isIncomplete) {\n    console.log(`Skipping ${candidateName} - interview already completed`);\n    continue;\n  }\n  \n  // Parse the interview date (handle both DD/MM/YYYY and YYYY-MM-DD formats)\n  let interviewDate;\n  if (interviewDateStr.includes('/')) {\n    const dateParts = interviewDateStr.split('/');\n    interviewDate = new Date(\n      parseInt(dateParts[2]), // year\n      parseInt(dateParts[1]) - 1, // month (0-indexed)\n      parseInt(dateParts[0]) // day\n    );\n  } else if (interviewDateStr.includes('-')) {\n    interviewDate = new Date(interviewDateStr);\n  } else {\n    console.log(`Skipping ${candidateName} - invalid date format: ${interviewDateStr}`);\n    continue;\n  }\n  \n  // Validate parsed date\n  if (isNaN(interviewDate.getTime())) {\n    console.log(`Skipping ${candidateName} - could not parse date: ${interviewDateStr}`);\n    continue;\n  }\n  \n  // Calculate hours since interview was sent\n  const hoursSinceInvite = (now - interviewDate) / (1000 * 60 * 60);\n  \n  // Check current follow-up status\n  const currentStatus = data['Interview Follow Up Status'] || '';\n  \n  // Determine which follow-up to send\n  let followUpType = null;\n  let shouldSend = false;\n  \n  if (hoursSinceInvite >= THIRD_FOLLOWUP && !currentStatus.includes('3rd')) {\n    followUpType = '3rd';\n    shouldSend = true;\n  } else if (hoursSinceInvite >= SECOND_FOLLOWUP && !currentStatus.includes('2nd')) {\n    followUpType = '2nd';\n    shouldSend = true;\n  } else if (hoursSinceInvite >= FIRST_FOLLOWUP && !currentStatus.includes('1st')) {\n    followUpType = '1st';\n    shouldSend = true;\n  }\n  \n  // Only add if a follow-up is needed\n  if (shouldSend && followUpType) {\n    console.log(`✓ ${candidateName} (${email}) - ${followUpType} follow-up needed`);\n    \n    eligibleCandidates.push({\n      // Row identification\n      row_number: data.row_number,\n      rowId: data.row_number,\n      \n      // Candidate info\n      candidateName: candidateName,\n      candidateEmail: email,\n      Email: email,\n      interviewLink: data['Interview Link'] || '',\n      interviewDate: interviewDateStr,\n      agentName: data['Agent Name'],\n      \n      // Follow-up details\n      followUpType: followUpType,\n      currentStatus: currentStatus,\n      hoursSinceInvite: Math.floor(hoursSinceInvite),\n      \n      // Metadata\n      status: `${followUpType} Follow-up Needed`,\n      updateTimestamp: now.toISOString()\n    });\n  }\n}\n\n// Return results\nif (eligibleCandidates.length === 0) {\n  return [{\n    json: {\n      message: 'No candidates need follow-up at this time',\n      checkedAt: now.toISOString(),\n      totalChecked: rows.length,\n      eligibleCount: 0\n    }\n  }];\n}\n\nreturn eligibleCandidates.map(candidate => ({\n  json: candidate\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-272, 2816],
+      "id": "f8a25224-d9a0-4cd1-a351-1ccf56cd182b",
+      "name": "Filter and Check Follow-up Eligibility",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "BrevoTemplateID",
+              "value": "YOUR_BREVO_TEMPLATE_ID"
+            },
+            {
+              "name": "GoogleSheetID",
+              "value": "YOUR_GOOGLE_SHEET_ID"
+            },
+            {
+              "name": "WATIApiUrl",
+              "value": "YOUR_WATI_API_URL"
+            },
+            {
+              "name": "WATIApiKey",
+              "value": "YOUR_WATI_API_KEY"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "DEV_MODE",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Workflow Variables1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [-720, 2816],
+      "id": "d133bc91-f1d5-47e0-afbf-6cc3e91702e0"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// UPDATE INTERVIEW FOLLOW-UP STATUS IN SHEET\n// ========================================\n\nconst items = $input.all();\nconst sheetUpdates = [];\n\nitems.forEach(item => {\n  const candidateData = item.json;\n  \n  if (!candidateData.followUpType) {\n    console.log('No follow-up type specified, skipping');\n    return;\n  }\n  \n  // Map follow-up type to status text\n  const statusMap = {\n    '1st': '1st Follow-up Sent',\n    '2nd': '2nd Follow-up Sent', \n    '3rd': '3rd Follow-up Sent'\n  };\n  \n  const newStatus = statusMap[candidateData.followUpType] || 'Follow Up Error';\n  \n  sheetUpdates.push({\n    json: {\n      row_number: candidateData.row_number || candidateData.rowId,\n      \n      // CORRECT column names matching AI Interview sheet\n      'Candidate Email': candidateData.candidateEmail || candidateData.Email,\n      'Interview Link': candidateData.interviewLink,\n      'Interview Date': candidateData.interviewDate,\n      'Interview Follow Up Status': newStatus,\n      \n      // Pass through for email generation\n      candidateEmail: candidateData.candidateEmail || candidateData.Email,\n      candidateName: candidateData.candidateName,\n      interviewLink: candidateData.interviewLink,\n      interviewDate: candidateData.interviewDate,\n      hoursSinceInvite: candidateData.hoursSinceInvite,\n      followUpType: candidateData.followUpType\n    }\n  });\n});\n\nconsole.log(`Preparing to update ${sheetUpdates.length} rows`);\nreturn sheetUpdates;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-48, 2816],
+      "id": "326b13f2-785d-4ac5-aeaf-adb6e18a5189",
+      "name": "Update Google Sheet Status",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "api-key",
+              "value": "YOUR_BREVO_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [400, 2816],
+      "id": "7aec87bd-5e76-45be-b604-eca7ce12c293",
+      "name": "Send Follow Up Email"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ========================================\n// GENERATE INTERVIEW FOLLOW-UP EMAIL TEMPLATE\n// ========================================\n\n// Get data from the PREVIOUS node (Update Google Sheet Status), not Filter\nconst candidateData = $input.item.json;\n\n// Extract candidate info - check multiple field names\nconst candidateEmail = candidateData['Candidate Email'] || candidateData.candidateEmail || candidateData.Email || '';\nconst candidateName = candidateData.candidateName || candidateData['Candidate Name'] || 'Candidate';\nconst firstName = candidateName.split(' ')[0] || 'Candidate';\nconst followUpType = candidateData.followUpType || '1st';\n\n// Skip if no valid email\nif (!candidateEmail || !candidateEmail.includes('@')) {\n  console.log(`Skipping - invalid email: ${candidateEmail}`);\n  return {\n    _skip: true,\n    reason: 'Invalid email address',\n    email: candidateEmail\n  };\n}\n\n// Get additional info\nconst interviewLink = candidateData.interviewLink || candidateData['Interview Link'] || '';\nconst interviewDate = candidateData.interviewDate || candidateData['Interview Date'] || '';\nconst position = candidateData.position || 'the position';\nconst company = candidateData.company || 'Your Company';\n\n// Calculate hours/days since invite\nconst hoursSinceInvite = candidateData.hoursSinceInvite || 0;\nconst daysSinceInvite = Math.floor(hoursSinceInvite / 24);\n\n// Define email templates for each follow-up type\nconst templates = {\n  '1st': {\n    subject: `Reminder – Complete Your AI Interview for ${position}`,\n    htmlContent: `<div style=\"font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; color: #333;\">\n  <p>Dear ${firstName},</p>\n  \n  <p>I hope you're having a great week. I'm reaching out as a friendly reminder that we haven't yet received your completed AI interview for the <strong>${position}</strong> position at <strong>${company}</strong>.</p>\n  \n  <p>We genuinely enjoyed reviewing your CV and believe you could be a strong fit for this role. However, we can't move forward without this interview assessment, which provides critical insight into:</p>\n  \n  <ul>\n    <li>Your communication style and presentation skills</li>\n    <li>Your relevant experience and technical knowledge</li>\n    <li>Your problem-solving approach and critical thinking</li>\n    <li>Your cultural fit with our team and values</li>\n    <li>Your motivation and genuine interest in the role</li>\n  </ul>\n  \n  <p><strong>Complete Your Interview Here:</strong><br/>\n  <a href=\"${interviewLink}\" style=\"display: inline-block; padding: 12px 24px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;\">Start Your AI Interview</a></p>\n  \n  <p><strong>Interview Details:</strong></p>\n  <ul>\n    <li><strong>Invite Sent:</strong> ${interviewDate} (${daysSinceInvite} days ago)</li>\n    <li><strong>Duration:</strong> Approximately 30 minutes</li>\n    <li><strong>Format:</strong> AI-powered video interview</li>\n    <li><strong>Deadline:</strong> Please complete within the next 24–48 hours</li>\n  </ul>\n  \n  <p><strong>Before You Start:</strong></p>\n  <ul>\n    <li>Find a quiet location with good lighting</li>\n    <li>Ensure stable internet connection</li>\n    <li>Test your camera and microphone</li>\n    <li>Allow yourself 30-45 minutes uninterrupted time</li>\n  </ul>\n  \n  <p><strong>Please Note:</strong> We need your submission within the next 24–48 hours to continue considering your candidacy. We're reviewing applications on a rolling basis, and interview slots are filling quickly.</p>\n  \n  <p>If you have any questions, technical issues, or need clarification, please feel free to reach out. We're here to support you throughout the process.</p>\n  \n  <p>Looking forward to your interview submission.</p>\n  \n  <p>Best regards,<br>\n  <strong>${company} Recruitment Team</strong></p>\n</div>`\n  },\n  \n  '2nd': {\n    subject: `Second Reminder – AI Interview Pending for ${position}`,\n    htmlContent: `<div style=\"font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; color: #333;\">\n  <p>Dear ${firstName},</p>\n  \n  <p>I'm following up again regarding your AI interview for the <strong>${position}</strong> position. We still haven't received your completed interview, and we wanted to make sure you didn't miss our previous message.</p>\n  \n  <p>This position is quite competitive, and we're moving quickly through the selection process. If you're still interested in being considered for this role, please complete the AI interview as soon as possible.</p>\n  \n  <p><strong>Why This Interview Matters:</strong></p>\n  <ul>\n    <li>It allows us to assess your communication and presentation skills</li>\n    <li>It demonstrates your genuine interest and commitment</li>\n    <li>It helps us understand your fit for the role and team</li>\n    <li>It's required to progress to the next stage of our hiring process</li>\n  </ul>\n  \n  <p><strong>Complete Your Interview Here:</strong><br/>\n  <a href=\"${interviewLink}\" style=\"display: inline-block; padding: 12px 24px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;\">Start Your AI Interview</a></p>\n  \n  <p><strong>Current Status:</strong></p>\n  <ul>\n    <li><strong>Original Invite:</strong> ${interviewDate}</li>\n    <li><strong>Time Elapsed:</strong> ${daysSinceInvite} days</li>\n    <li><strong>Status:</strong> Awaiting completion</li>\n  </ul>\n  \n  <p><strong>Time-Sensitive:</strong> To ensure your candidacy remains active, please submit within 24 hours. After this period, we'll need to prioritize other candidates who have completed their interviews.</p>\n  \n  <p><strong>Technical Support:</strong> If you're experiencing any difficulties accessing the interview link or have technical issues, please let me know immediately so we can resolve any problems.</p>\n  \n  <p>We remain interested in your profile and hope to review your completed interview soon.</p>\n  \n  <p>Best regards,<br>\n  <strong>${company} Recruitment Team</strong></p>\n</div>`\n  },\n  \n  '3rd': {\n    subject: `Final Reminder – Last Chance to Complete AI Interview`,\n    htmlContent: `<div style=\"font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; color: #333;\">\n  <p>Dear ${firstName},</p>\n  \n  <p>This is our final reminder regarding your AI interview for the <strong>${position}</strong> position at <strong>${company}</strong>. We've reached out twice but haven't received your completed interview yet.</p>\n  \n  <p>Given the high level of interest in this position and our accelerated hiring timeline, this will be your last opportunity to complete the interview and remain in consideration.</p>\n  \n  <p><strong>Why This Role Matters:</strong></p>\n  <ul>\n    <li>Opportunity to join a leading company</li>\n    <li>Work with high-profile clients and prestigious projects</li>\n    <li>Career growth in a dynamic and creative environment</li>\n    <li>Competitive compensation and benefits package</li>\n  </ul>\n  \n  <p><strong>Complete Your Interview Here:</strong><br/>\n  <a href=\"${interviewLink}\" style=\"display: inline-block; padding: 12px 24px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; margin: 10px 0;\">Complete Interview Now - Final Chance</a></p>\n  \n  <p><strong>Final Deadline:</strong></p>\n  <ul>\n    <li><strong>Original Invite:</strong> ${interviewDate} (${daysSinceInvite} days ago)</li>\n    <li><strong>Deadline:</strong> Interviews must be completed within the next 12 hours</li>\n    <li><strong>Consequence:</strong> After this deadline, we will finalize our shortlist and your application will be closed</li>\n  </ul>\n  \n  <p><strong>Important:</strong> This is your final opportunity to express continued interest. If we don't receive your completed interview, we'll assume you're no longer interested and will close your application.</p>\n  \n  <p>If there are specific reasons preventing you from completing the interview or if you've decided to withdraw, please let me know so we can update our records accordingly.</p>\n  \n  <p>Thank you for your interest in ${company}, and we hope to hear from you soon.</p>\n  \n  <p>Best regards,<br>\n  <strong>${company} Recruitment Team</strong></p>\n</div>`\n  }\n};\n\n// Get the appropriate template\nconst template = templates[followUpType] || templates['1st'];\n\nconsole.log(`\\n=== Generating ${followUpType.toUpperCase()} Interview Follow-up ===`);\nconsole.log(`Candidate: ${candidateName} (${candidateEmail})`);\nconsole.log(`Follow-up Type: ${followUpType}`);\n\n// Return email data\nreturn {\n  _skip: false,\n  sender: {\n    name: `${company} Recruitment Team`,\n    email: \"YOUR_SENDER_EMAIL\"\n  },\n  to: [{\n    email: candidateEmail,\n    name: candidateName\n  }],\n  subject: template.subject,\n  htmlContent: template.htmlContent,\n  _candidateData: {\n    email: candidateEmail,\n    name: candidateName,\n    followUpType: followUpType,\n    rowId: candidateData.row_number\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [176, 2816],
+      "id": "3d7fceac-633d-4abd-8772-603895343afc",
+      "name": "Generate Follow-up Email"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Recruitment Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643507752,
+          "mode": "list",
+          "cachedResultName": "AI Interview",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643507752"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Candidate Email": "={{ $('Code in JavaScript3').item.json.candidateEmail }}",
+            "Agent ID": "={{ $('Create a interview link1').item.json.conversations[0].agentId }}",
+            "Interview Link": "={{ $('Code in JavaScript3').item.json.candidateEmailHyperlink }}",
+            "Agent Name": "=HR Interview Bot",
+            "Candidate Name": "={{ $('Create a interview link1').item.json._candidateName }}",
+            "Interview Date": "={{ $('Create a interview link1').item.json.conversations[0].dynamicVariables.interview_date }}",
+            "Interview Follow Up Status": "Interview Scheduled"
+          },
+          "matchingColumns": ["Candidate Email"],
+          "schema": [
+            {
+              "id": "Agent ID",
+              "displayName": "Agent ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Candidate Name",
+              "displayName": "Candidate Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Candidate Email",
+              "displayName": "Candidate Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Agent Name",
+              "displayName": "Agent Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interview Link",
+              "displayName": "Interview Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interview Date",
+              "displayName": "Interview Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Interview Follow Up Status",
+              "displayName": "Interview Follow Up Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Duration (minutes)",
+              "displayName": "Duration (minutes)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fit Score",
+              "displayName": "Fit Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Strengths",
+              "displayName": "Strengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Concerns",
+              "displayName": "Concerns",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Next Steps",
+              "displayName": "Next Steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Call ID",
+              "displayName": "Call ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Analyzed On",
+              "displayName": "Analyzed On",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1ef61c2a-40c8-41e9-9bd4-9204b8b4e196",
+      "name": "Update Sheet - Interview Status1",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1712, 2256],
+      "typeVersion": 4,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "STATUS UPDATE - INTERVIEW\n\nUpdates Google Sheet with:\n- Status: 'Interview Scheduled'\n- AI evaluation score\n- Recommendation level\n- Interview date\n\nThis keeps the ATS current for HR team tracking"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643835011,
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643835011"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-752, 2352],
+      "id": "621716c5-105e-49fd-aad6-154e77078d2f",
+      "name": "Get Candidates for AI Assessment",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7865fb06-18cf-4a2e-93a7-45e86c7ccada",
+              "name": "avatarId",
+              "type": "string",
+              "value": "YOUR_AVATAR_ID"
+            },
+            {
+              "id": "b1dce28c-eea1-42bb-9d51-39462d7cea1a",
+              "name": "agentName",
+              "type": "string",
+              "value": "=HR Interview Bot "
+            },
+            {
+              "id": "46f927ce-40b6-4121-b956-e8ee9b0481b1",
+              "name": "welcomeMessage",
+              "type": "string",
+              "value": "Hello! Welcome to our interview. I'm excited to learn about your background and discuss this opportunity with you. Let's start with you telling me a bit about yourself and what interests you about this position."
+            },
+            {
+              "id": "b5fcf2ac-705d-49c9-84c9-287b20e8b4cb",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "=You are a professional HR interviewer conducting job interviews. Your goal is to assess candidates thoroughly while making them feel comfortable and valued. Job Description: {{ $json.jobDescription }} Interview Approach: - Start with a warm welcome and brief introduction - Ask about their interest in the role and company - Explore their relevant experience with specific examples - Assess technical skills and cultural fit - Allow time for their questions - Close professionally with next steps Be conversational, ask follow-up questions, and show genuine interest in their responses. If they seem nervous, help them feel at ease. Always maintain a professional yet friendly tone."
+            },
+            {
+              "id": "715849ae-8722-40c3-a093-bcc54699e483",
+              "name": "jobDescription",
+              "type": "string",
+              "value": "={{$input.first().json.jobDescription}}"
+            },
+            {
+              "id": "8804e81a-c93f-4b84-be0d-0a1d709d6506",
+              "name": "candidateEmail",
+              "value": "={{ $json['Email'] }}",
+              "type": "string"
+            },
+            {
+              "id": "5851c99f-7efa-444f-9470-2efa6999e8b7",
+              "name": "candidateName",
+              "value": "={{ $json['First Name'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c31c64c-08ce-41b8-83dd-6ca1fbb023bd",
+      "name": "Prepare Interview Agent",
+      "type": "n8n-nodes-base.set",
+      "position": [144, 2256],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========== PASTE YOUR JOB DESCRIPTION HERE ==========\nconst jobDescription = `\nSenior Manager\n\nJob Description:\nLead, mentor, and inspire a distributed team of virtual stylists, image quality specialists, and external production partners.\nBuild and scale large outsourced teams to ensure productivity, engagement, and adherence to brand standards.\nEstablish clear performance metrics, accountability frameworks, and operational KPIs to drive excellence.\nCollaborate closely with cross-functional stakeholders—including creative, AI, and brand teams—to align output with business goals.\nOversee end-to-end project workflows for virtual styling and AI image production, from concept to delivery.\nManage projects in Asana or similar tools, ensuring accurate task planning, prioritization, and timeline adherence.\nDevelop production schedules, capacity plans, and dashboards for real-time operational visibility.\nIdentify bottlenecks, propose process enhancements, and implement structured project management methodologies.\nManage and strengthen relationships with third-party logistics (3PL) and production vendors to ensure service excellence.\nMonitor vendor performance, enforce quality standards, and uphold service-level agreements (SLAs).\nDevelop frameworks for evaluating vendor efficiency, communication, and scalability.\nLead vendor onboarding, training, and continuous improvement initiatives.\nDefine and enforce high standards for image quality, styling accuracy, and brand consistency.\nOversee systematic quality control processes and resolve discrepancies with internal and external teams.\nCollaborate with AI and creative teams to refine virtual styling models and enhance rendering accuracy.\nUse data-driven insights to evolve quality benchmarks and improve operational performance.\nChampion the integration of emerging tools, automation, and AI technologies to streamline production workflows.\nStay informed of industry trends in virtual styling, digital fashion, and AI-generated imagery.\nDevelop and maintain playbooks, standard operating procedures (SOPs), and training materials to ensure consistency across all teams and partners.\n\nQualifications:\nBachelor's degree in Fashion Design, Merchandising, Visual Arts, Operations Management, or a related field (or equivalent experience).\n5+ years of experience in digital fashion, creative operations, or e-commerce production — with proven experience managing outsourced or offshore teams.\nStrong proficiency in Asana (or similar project management platforms such as Airtable or Monday.com) for team coordination, task tracking, and workflow automation.\nDemonstrated success in leading cross-functional teams and managing large-scale, fast-paced creative projects.\nExperience overseeing 3PL operations or external vendor management in a creative production or digital content environment.\nDeep understanding of digital image quality standards, styling principles, and fashion aesthetics.\nExcellent leadership, organizational, and interpersonal communication skills.\nAbility to balance creative excellence with operational efficiency and data-driven decision-making.\n`;\n\n// KEEP ALL DATA and add job description\nreturn $input.all().map(item => {\n  return {\n    json: {\n      ...item.json,\n      jobDescription: jobDescription.trim(),\n      // EXPLICITLY PASS EMAIL AND NAME\n      _email: item.json['Email'] || item.json['Email Address'],\n      _name: item.json['First Name'] || item.json['Full Name'] || 'Candidate'\n    }\n  };\n});"
+      },
+      "id": "bfccfd98-0848-450b-9914-2af9a8b8ba8d",
+      "name": "Your Job Description",
+      "type": "n8n-nodes-base.code",
+      "position": [-80, 2256],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-304, 2448],
+      "id": "feacaf2d-cc11-493e-b564-c2793895164b",
+      "name": "No Operation, do nothing2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "api-key",
+              "value": "YOUR_BREVO_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1264, 2256],
+      "id": "aed7f222-6c69-4fef-9047-c7a8a27019ac",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const orationAgentId = \"YOUR_ORATION_AGENT_ID\"; \n\nreturn $input.all().map((item, index) => {\n  \n  // USE $input - already filtered and has the data\n  const source = item.json;\n  \n  const email = source['Email'] || source['Email Address'] || source.candidateEmail;\n  const name = source['First Name'] || source['Full Name'] || source.candidateName || \"Candidate\";\n\n  console.log(`Index ${index}: Email = ${email}, Name = ${name}`);\n  console.log(`Available keys:`, Object.keys(source));\n\n  const dynamicVariables = {\n    candidate_email: email,\n    candidate_name: name,\n    position: \"Senior Manager\",\n    company: \"Your Company\",\n    interview_date: new Date().toISOString().split('T')[0],\n    interview_type: \"Senior Manager Assessment\",\n  };\n\n  return {\n    json: {\n      _candidateEmail: email,\n      _candidateName: name,\n      conversations: [\n        {\n          agentId: orationAgentId,\n          conversationType: \"web\",\n          dynamicVariables: dynamicVariables\n        }\n      ]\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [368, 2256],
+      "id": "2c02b326-ed39-4929-bcfb-cd33368c5f3a",
+      "name": "Create a interview link1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// CONSTRUCT EMAILS\n// ========================================\nreturn $input.all().map((item, index) => {\n  const data = item.json;\n  \n  const email = data.candidateEmail;\n  const link = data.interviewLink;\n  const name = data.candidateName;\n  \n  // Skip if missing data\n  if (!email || !link) {\n     return { \n       json: { \n         ...data,\n         _STATUS: \"SKIPPED - Missing Data\"\n       } \n     };\n  }\n  \n  return {\n    json: {\n      // PASS THROUGH FOR GOOGLE SHEET UPDATES\n      candidateEmail: email,\n      candidateName: name,\n      interviewLink: link,\n      interviewDateSheet: data.interviewDateSheet,\n      agentId: data.agentId,\n      \n      // EMAIL PAYLOAD\n      sender: { \n        name: \"Your Company Recruitment Team\", \n        email: \"YOUR_SENDER_EMAIL\" \n      },\n      to: [{ email: email, name: name }],\n      subject: \"AI Interview Scheduled – Senior Manager Position\",\n      htmlContent: `\n      <div style=\"font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.6; color: #333;\">\n        <p>Dear ${name},</p>\n        \n        <p>Thank you for your interest in joining our team. We are pleased to confirm that your AI-powered interview has been successfully scheduled.</p>\n        \n        <p><strong>Please click the link below to join your interview at the designated time:</strong><br>\n        <a href=\"${link}\" style=\"color: #0066cc; font-weight: bold;\">Start AI Interview</a></p>\n        \n        <p>Once you click the link, you'll be connected to our AI interviewer. The interview will begin automatically when you join. Please stay on the call until the AI interviewer concludes the session. If needed, you can end the call using the disconnect button.</p>\n        \n        <p><strong>Before the Interview:</strong></p>\n        <ul style=\"margin: 10px 0; padding-left: 20px;\">\n          <li>Test your internet connection and ensure it is stable</li>\n          <li>Find a quiet location with minimal background noise</li>\n          <li>Allow microphone access when prompted by your browser</li>\n          <li>Have a copy of your CV ready for reference</li>\n          <li>Prepare to speak clearly and naturally with the AI interviewer</li>\n        </ul>\n        \n        <p><strong>Technical Requirements:</strong></p>\n        <ul style=\"margin: 10px 0; padding-left: 20px;\">\n          <li>Use a modern web browser (Chrome, Firefox, Safari, or Edge)</li>\n          <li>Ensure your microphone is working properly</li>\n          <li>Keep the browser tab open throughout the interview</li>\n        </ul>\n        \n        <p>Our AI interviewer will guide you through the conversation and ask questions about your experience and the Senior Manager role. This typically takes 15-20 minutes.</p>\n        \n        <p>If you experience any technical difficulties or need to reschedule, please contact us immediately.</p>\n        \n        <p>Best regards,<br>\n        <strong>Your Company Recruitment Team</strong></p>\n      </div>`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 2256],
+      "id": "d57b8186-3129-4f39-9f18-a7f34a2565c8",
+      "name": "Construct Email1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json[\"Hire Select Status\"] }}",
+              "value2": "HS Done"
+            },
+            {
+              "value1": "={{ $json[\"Google Form Status\"] }}",
+              "value2": "Google Form Filled"
+            },
+            {
+              "value1": "={{ $json.Summary }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "73c76638-03d2-4346-8860-a90d26e74104",
+      "name": "IF - Check Google&HS Status1",
+      "type": "n8n-nodes-base.if",
+      "position": [-528, 2352],
+      "typeVersion": 1,
+      "notes": "DECISION POINT\n\nRoutes candidates based on evaluation:\n\nTRUE (Score = 70):\n- Send interview invitation\n- Schedule meeting\n- Update status to 'Interview Scheduled'\n\nFALSE (Score < 70):\n- Send rejection email\n- Update status to 'Rejected'\n- Archive application"
+    },
+    {
+      "parameters": {
+        "jsCode": "const orationAgentId = \"YOUR_ORATION_AGENT_ID\";\n\n// Get candidate data from before HTTP request\nlet linkNodeItems = [];\ntry {\n  linkNodeItems = $('Create a interview link1').all();\n} catch (error) {\n  console.log(\"Could not find link node\");\n}\n\n// Get original data with row numbers\nlet originalItems = [];\ntry {\n  originalItems = $('Get Candidates for AI Assessment').all();\n} catch (error) {\n  console.log(\"Could not find original node\");\n}\n\nreturn $input.all().map((item, index) => {\n  const response = item.json;\n  \n  // Get link from API response\n  let link = \"\";\n  if (response.results && response.results[0]) {\n    link = response.results[0].tokenResponse.liveTest;\n  }\n\n  // Get data from the node that created the request\n  const linkItem = linkNodeItems[index] ? linkNodeItems[index].json : {};\n  const email = linkItem._candidateEmail || \"\";\n  const name = linkItem._candidateName || \"Candidate\";\n  const interviewDate = linkItem.conversations?.[0]?.dynamicVariables?.interview_date || new Date().toISOString().split('T')[0];\n\n  // Get row number for hyperlink (Candidates sheet gid=643835011)\n  const rowNumber = originalItems[index]?.json?.row_number || (index + 2);\n  const emailHyperlink = `=HYPERLINK(\"#gid=643835011&range=A${rowNumber}\", \"${email}\")`;\n\n  console.log(`Index ${index}: Email=\"${email}\", Row=${rowNumber}`);\n\n  return {\n    json: {\n      candidateEmail: email,\n      candidateEmailHyperlink: emailHyperlink,\n      candidateName: name,\n      interviewLink: link,\n      interviewDate: interviewDate,\n      agentId: orationAgentId\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [816, 2256],
+      "id": "d37ec914-6886-428d-9202-785a4aa77c69",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst currentDateUK = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));\nconst STATUS_COLUMN = \"AI Interview Status\";\nconst oneDay = 24 * 60 * 60 * 1000;\n\nfunction parseTimestamp(timestampStr) {\n  if (!timestampStr) return null;\n  if (timestampStr instanceof Date) return timestampStr;\n  if (typeof timestampStr === 'string' && (timestampStr.includes('-') || timestampStr.includes('T'))) {\n    const iso = new Date(timestampStr);\n    if (!isNaN(iso.getTime())) return iso;\n  }\n  if (typeof timestampStr === 'string' && timestampStr.includes('/')) {\n    try {\n      const parts = timestampStr.split(',')[0].trim().split('/');\n      if (parts.length === 3) {\n        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));\n      }\n    } catch (e) { return null; }\n  }\n  return new Date(timestampStr);\n}\n\nfunction checkEligibility(candidate) {\n  const currentStatus = candidate[STATUS_COLUMN] || \"\";\n  \n  if (currentStatus && (\n      currentStatus.toString().toLowerCase().includes('scheduled') || \n      currentStatus.toString().toLowerCase().includes('sent') ||\n      currentStatus.toString().toLowerCase().includes('done')\n     )) {\n    return { eligible: false, reason: \"Already scheduled/sent/done\" };\n  }\n\n  const timestampRaw = candidate.Timestamp;\n  if (!timestampRaw) {\n    return { eligible: false, reason: \"No Timestamp\" };\n  }\n\n  const formDate = parseTimestamp(timestampRaw);\n  if (!formDate || isNaN(formDate.getTime())) {\n    return { eligible: false, reason: \"Invalid Date\" };\n  }\n\n  const d1 = new Date(formDate.getFullYear(), formDate.getMonth(), formDate.getDate());\n  const d2 = new Date(currentDateUK.getFullYear(), currentDateUK.getMonth(), currentDateUK.getDate());\n  const diffDays = Math.floor((d2.getTime() - d1.getTime()) / oneDay);\n\n  if (diffDays < 2) {\n    return { eligible: false, reason: `Too soon: ${diffDays} days` };\n  }\n\n  return { eligible: true, diffDays };\n}\n\nconst allItems = $input.all();\nconst eligibleCandidates = [];\n\nfor (const item of allItems) {\n  const candidate = item.json;\n  const result = checkEligibility(candidate);\n  \n  console.log(`Checking: ${candidate.Email || candidate[\"Full Name\"] || \"Unknown\"}`);\n  \n  if (result.eligible) {\n    console.log(`ELIGIBLE`);\n    eligibleCandidates.push({\n      json: {\n        ...candidate,\n        _eligibility: {\n          status: \"Eligible\",\n          checkedOn: currentDateUK.toISOString()\n        }\n      }\n    });\n  } else {\n    console.log(`SKIPPED: ${result.reason}`);\n  }\n}\n\nconsole.log(`\\n=== SUMMARY ===`);\nconsole.log(`Total: ${allItems.length} | Eligible: ${eligibleCandidates.length}`);\n\nreturn eligibleCandidates;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-304, 2256],
+      "id": "1a92100b-19d2-4dad-9612-d0e004adf63b",
+      "name": "Check 2-Day Waiting Period2",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Recruitment Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643835011,
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643835011"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Code in JavaScript3').item.json.candidateEmail }}",
+            "AI Interview Status": "Interview Scheduled",
+            "Link to AI Interview": "={{ $('Code in JavaScript3').item.json.candidateEmailHyperlink }}"
+          },
+          "matchingColumns": ["Email"],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "First Name",
+              "displayName": "First Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "PhoneNo",
+              "displayName": "PhoneNo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Status",
+              "displayName": "Email Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "AI Interview Status",
+              "displayName": "AI Interview Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link to AI Interview",
+              "displayName": "Link to AI Interview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "update-candidates-sheet",
+      "name": "Update Candidates Sheet Status",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1488, 2256],
+      "typeVersion": 4,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Workflow Variables1').item.json.WATIApiUrl }}/api/v1/sendTemplateMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Set Workflow Variables1').item.json.WATIApiKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [400, 3200],
+      "id": "wati-send-template",
+      "name": "Send WhatsApp Template"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-960, 2352],
+      "id": "schedule-trigger-main",
+      "name": "Schedule Trigger - Main Flow"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-960, 2816],
+      "id": "schedule-trigger-followup",
+      "name": "Schedule Trigger - Follow Up"
+    }
+  ],
+  "connections": {
+    "Get All Candidates": {
+      "main": [
+        [
+          {
+            "node": "Filter and Check Follow-up Eligibility",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter and Check Follow-up Eligibility": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheet Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Workflow Variables1": {
+      "main": [
+        [
+          {
+            "node": "Get All Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheet Status": {
+      "main": [
+        [
+          {
+            "node": "Generate Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Follow-up Email": {
+      "main": [
+        [
+          {
+            "node": "Send Follow Up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Candidates for AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "IF - Check Google&HS Status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Check Google&HS Status1": {
+      "main": [
+        [
+          {
+            "node": "Check 2-Day Waiting Period2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check 2-Day Waiting Period2": {
+      "main": [
+        [
+          {
+            "node": "Your Job Description",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your Job Description": {
+      "main": [
+        [
+          {
+            "node": "Prepare Interview Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Interview Agent": {
+      "main": [
+        [
+          {
+            "node": "Create a interview link1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a interview link1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Construct Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct Email1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet - Interview Status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Main Flow": {
+      "main": [
+        [
+          {
+            "node": "Get Candidates for AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Follow Up": {
+      "main": [
+        [
+          {
+            "node": "Set Workflow Variables1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 2
+}
