@@ -1,0 +1,484 @@
+{
+  "name": "AI CV Assessment Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "GoogleSheetID",
+              "value": "YOUR_GOOGLE_SHEET_ID"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Workflow Variables3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [-736, 3984],
+      "id": "9b447829-b090-4fad-a086-a368eb6ea7b2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert HR analyst specializing in Senior Manager recruitment for digital fashion, creative operations, and virtual styling. Provide comprehensive candidate assessments focusing on distributed team leadership, vendor management, project management, quality control, and AI integration in creative workflows. CRITICAL: Always respond with valid JSON only.\n\nAnalyze this Senior Manager candidate for virtual styling and creative operations:\n\nCV: {{$json.cvData?.text || 'Not provided'}}\nEmail: {{$json.candidateInfo?.email || 'Not provided'}}\n\nCANDIDATE INFO:\n- Name: {{$json.candidateInfo?.fullName || 'N/A'}}\n- Phone: {{$json.candidateInfo?.phone || 'N/A'}}\n- Application Date: {{$json.candidateInfo?.applicationDate || 'N/A'}}\n\nEXPERIENCE & SKILLS ASSESSMENT:\n- Distributed Team Experience: {{$json.formResponses?.distributedTeamExperience || 'N/A'}} years\n- Team Leadership Rating: {{$json.formResponses?.teamLeadershipRating || 'N/A'}}/10\n- Offshore Management: {{$json.formResponses?.offshoreManagement || 'N/A'}} years\n- Offshore Management Rating: {{$json.formResponses?.offshoreRating || 'N/A'}}/10\n- Creative Operations Experience: {{$json.formResponses?.creativeOperations || 'N/A'}} years\n- Project Management Tools Proficiency: {{$json.formResponses?.toolsProficiency || 'N/A'}}/10\n- 3PL/Vendor Management: {{$json.formResponses?.vendorExperience || 'N/A'}} years\n- Digital Fashion/Virtual Styling: {{$json.formResponses?.digitalFashion || 'N/A'}} years\n- AI/Automation Experience: {{$json.formResponses?.aiAutomation || 'N/A'}}\n\nProvide assessment in this exact JSON format:\n{\n  \"leadershipScore\": [0-10],\n  \"operationalExcellenceScore\": [0-10],\n  \"vendorManagementScore\": [0-10],\n  \"technicalProficiencyScore\": [0-10],\n  \"qualityFocusScore\": [0-10],\n  \"overallScore\": [0-100],\n  \"summary\": \"40-word assessment\",\n  \"recommendation\": \"STRONG_YES|YES|NO|STRONG_NO\",\n  \"strengths\": [\"strength1\", \"strength2\", \"strength3\"],\n  \"developmentAreas\": [\"area1\", \"area2\"],\n  \"roleSpecificAssessment\": {...},\n  \"experienceAlignment\": {...},\n  \"cognitiveAssessment\": {...},\n  \"culturalFit\": \"assessment\",\n  \"priorityLevel\": \"HIGH|MEDIUM|LOW\"\n}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [1056, 3984],
+      "id": "c704a7e9-fe9e-46c6-ab41-f6bc73f4cfcf",
+      "name": "AI Agent1",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [1072, 4208],
+      "id": "c98600db-de0d-442a-a0ad-294effb8870d",
+      "name": "DeepSeek Chat Model1",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "DeepSeek Access"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"leadershipScore\": {\n      \"type\": \"number\",\n      \"description\": \"Score from 0 to 10 for leadership capabilities\"\n    },\n    \"operationalExcellenceScore\": {\n      \"type\": \"number\",\n      \"description\": \"Score from 0 to 10 for operational excellence\"\n    },\n    \"vendorManagementScore\": {\n      \"type\": \"number\",\n      \"description\": \"Score from 0 to 10 for vendor management\"\n    },\n    \"technicalProficiencyScore\": {\n      \"type\": \"number\",\n      \"description\": \"Score from 0 to 10 for technical proficiency in project management tools\"\n    },\n    \"qualityFocusScore\": {\n      \"type\": \"number\",\n      \"description\": \"Score from 0 to 10 for quality focus\"\n    },\n    \"overallScore\": {\n      \"type\": \"number\",\n      \"description\": \"Overall score from 0 to 100\"\n    },\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"40-word assessment covering leadership, operations, and team management capabilities\"\n    },\n    \"recommendation\": {\n      \"type\": \"string\",\n      \"enum\": [\"STRONG_YES\", \"YES\", \"NO\", \"STRONG_NO\"]\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"minItems\": 3,\n      \"maxItems\": 3\n    },\n    \"developmentAreas\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"minItems\": 2,\n      \"maxItems\": 2\n    },\n    \"roleSpecificAssessment\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"teamLeadership\": {\n          \"type\": \"string\"\n        },\n        \"vendorManagement\": {\n          \"type\": \"string\"\n        },\n        \"projectManagement\": {\n          \"type\": \"string\"\n        },\n        \"qualityControl\": {\n          \"type\": \"string\"\n        },\n        \"aiIntegration\": {\n          \"type\": \"string\"\n        },\n        \"strategicPlanning\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\"teamLeadership\", \"vendorManagement\", \"projectManagement\", \"qualityControl\", \"aiIntegration\", \"strategicPlanning\"]\n    },\n    \"experienceAlignment\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"yearsRelevantExperience\": {\n          \"type\": \"string\"\n        },\n        \"teamScaleExperience\": {\n          \"type\": \"string\"\n        },\n        \"budgetManagement\": {\n          \"type\": \"string\"\n        },\n        \"crossFunctionalCollaboration\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\"yearsRelevantExperience\", \"teamScaleExperience\", \"budgetManagement\", \"crossFunctionalCollaboration\"]\n    },\n    \"cognitiveAssessment\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"ccatScore\": {\n          \"type\": \"string\"\n        },\n        \"eppScore\": {\n          \"type\": \"string\"\n        },\n        \"talentSignal\": {\n          \"type\": \"string\"\n        },\n        \"learningAgility\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\"ccatScore\", \"eppScore\", \"talentSignal\", \"learningAgility\"]\n    },\n    \"culturalFit\": {\n      \"type\": \"string\"\n    },\n    \"priorityLevel\": {\n      \"type\": \"string\",\n      \"enum\": [\"HIGH\", \"MEDIUM\", \"LOW\"]\n    }\n  },\n  \"required\": [\"leadershipScore\", \"operationalExcellenceScore\", \"vendorManagementScore\", \"technicalProficiencyScore\", \"qualityFocusScore\", \"overallScore\", \"summary\", \"recommendation\", \"strengths\", \"developmentAreas\", \"roleSpecificAssessment\", \"experienceAlignment\", \"cognitiveAssessment\", \"culturalFit\", \"priorityLevel\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [1200, 4208],
+      "id": "000b915e-224a-4eb0-aaf5-b4e53d074b08",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format DeepSeek AI structured response for Google Sheets update\ntry {\n  const assessment = $input.item.json.output; \n  const candidateData = $('Prepare DeepSeek Assessment Data1').item.json;\n  const candidateEmail = candidateData.candidateEmail;\n  \n  console.log('Processing DeepSeek assessment for:', candidateEmail);\n  console.log('Overall Score:', assessment.overallScore);\n  console.log('Recommendation:', assessment.recommendation);\n\n  // Create the detailed summary \n  const detailedSummary = [\n    ...(assessment.strengths || []),\n    ...(assessment.developmentAreas || []),\n    assessment.cognitiveAssessment?.ccatScore,\n    assessment.cognitiveAssessment?.eppScore,\n    assessment.cognitiveAssessment?.talentSignal,\n    assessment.cognitiveAssessment?.learningAgility,\n    assessment.culturalFit\n  ]\n  .filter(item => item && item.trim() !== '')\n  .join(',');\n\n  // Format for Google Sheets update\n  return {\n    json: {\n      email: candidateEmail,\n      candidateInfo: {\n        email: candidateEmail,\n        fullName: candidateData.candidateInfo?.fullName || 'Not provided',\n        phone: candidateData.candidateInfo?.phone || 'Not provided',\n        applicationDate: candidateData.candidateInfo?.applicationDate || 'Not provided',\n        originalData: candidateData\n      },\n      \n      'Job Longevity': assessment.leadershipScore.toString(),\n      'CV Integrity': assessment.technicalProficiencyScore.toString(),\n      'Assessment Summary': assessment.summary,\n      'Overall Score': assessment.overallScore.toString(),\n      'Recommendation': assessment.recommendation,\n      'Summary': detailedSummary,\n      \n      assessmentDetails: {\n        method: 'DeepSeek AI',\n        assessmentDate: new Date().toISOString(),\n        leadershipScore: assessment.leadershipScore,\n        operationalExcellenceScore: assessment.operationalExcellenceScore,\n        vendorManagementScore: assessment.vendorManagementScore,\n        technicalProficiencyScore: assessment.technicalProficiencyScore,\n        qualityFocusScore: assessment.qualityFocusScore,\n        strengths: assessment.strengths || [],\n        developmentAreas: assessment.developmentAreas || [],\n        roleSpecificAssessment: assessment.roleSpecificAssessment || {},\n        experienceAlignment: assessment.experienceAlignment || {},\n        cognitiveAssessment: assessment.cognitiveAssessment || {},\n        culturalFit: assessment.culturalFit,\n        priorityLevel: assessment.priorityLevel\n      }\n    }\n  };\n  \n} catch (error) {\n  console.error('DeepSeek processing error:', error);\n  const candidateData = $('Prepare DeepSeek Assessment Data1').item.json;\n  const candidateEmail = candidateData.candidateEmail;\n  \n  return {\n    json: {\n      email: candidateEmail,\n      'Job Longevity': '0',\n      'CV Integrity': '0',\n      'Assessment Summary': 'AI assessment processing failed - manual review required',\n      'Overall Score': '0',\n      'Recommendation': 'MAYBE',\n      'Summary': 'Assessment failed: ' + error.message\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1408, 3984],
+      "id": "c12a2005-a159-446a-a4e6-a08908d82039",
+      "name": "Format DeepSeek Assessment for Sheets"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.GoogleSheetID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643835011,
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643835011"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Google Form Status",
+              "lookupValue": "Google Form Filled"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-512, 3888],
+      "id": "d1008f8e-6fc1-4ca4-8261-4ac74a4ff51a",
+      "name": "Get Candidates for AI Assessment2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.Field }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [384, 3984],
+      "id": "cd850bfa-687a-405b-992b-8d535ef32264",
+      "name": "Download CV for DeepSeek1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [608, 3984],
+      "id": "00222d08-55de-44f7-9b2a-786720844d32",
+      "name": "Extract CV Text1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the candidate data and CV extraction results\nconst candidateData = $('Has Candidates?1').item.json;\nconst cvExtraction = $input.item.json;\n\nconst candidateEmail = candidateData.Email || candidateData['Email Address'] || 'Unknown';\n\nconsole.log('Processing candidate:', candidateEmail);\n\n// Build the assessment prompt with structured data\nconst assessmentPrompt = {\n  cvData: {\n    text: cvExtraction.text || '',\n    metadata: {\n      numPages: cvExtraction.numpages,\n      title: cvExtraction.info?.Title,\n      author: cvExtraction.info?.Author\n    }\n  },\n  \n  candidateInfo: {\n    email: candidateEmail,\n    fullName: candidateData['Full Name'] || candidateData['First Name'] || 'Not provided',\n    phone: candidateData.PhoneNo || 'Not provided',\n    applicationDate: candidateData.Date || 'Not provided'\n  },\n  \n  assessmentScores: {\n    talentSignal: candidateData['Talent Signal'] || '0',\n    ccatRawScore: candidateData['CCAT Raw Score'] || '0',\n    eppAssessment: candidateData['EPP Overall Assessment'] || '0',\n    clpt: candidateData['CLPT'] || 'Not provided'\n  },\n  \n  formResponses: {\n    distributedTeamExperience: candidateData['1. (a) How many years of experience do you have leading and managing distributed or remote teams?'] || 'Not provided',\n    teamLeadershipRating: candidateData['(b) How would you rate yourself out of 10 in team leadership, mentorship, and building high-performing teams?'] || 'Not provided',\n    offshoreManagement: candidateData['2. (a) Years of direct experience managing outsourced or offshore teams?'] || 'Not provided',\n    creativeOperations: candidateData['3. (a) Years of experience in creative operations, digital production, or e-commerce?'] || 'Not provided',\n    vendorExperience: candidateData['5. (a) Years of experience managing third-party logistics (3PL) providers or external production vendors?'] || 'Not provided',\n    digitalFashion: candidateData['6. (a) Years of experience in digital fashion, virtual styling, or AI-generated imagery?'] || 'Not provided',\n    aiAutomation: candidateData['7. (a) Do you have experience implementing AI, automation, or new technologies in production workflows?'] || 'Not provided'\n  },\n  \n  assets: {\n    cvUrl: candidateData['Please upload your CV/Resume here.'] || 'Not provided',\n    videoUrl: candidateData['Please upload a short video'] || 'Not provided'\n  },\n  \n  systemStatus: {\n    googleFormStatus: candidateData['Google Form Status'] || 'N/A',\n    hireSelectStatus: candidateData['HR Select Status'] || 'N/A'\n  }\n};\n\nreturn assessmentPrompt;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [832, 3984],
+      "id": "d52207ac-7318-4989-9d70-e34e39add0a7",
+      "name": "Prepare DeepSeek Assessment Data1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log DeepSeek assessment results\nconst assessments = $input.all();\n\nconsole.log(`\\n=== DEEPSEEK AI ASSESSMENT RESULTS ===`);\nconsole.log(`Processed: ${assessments.length} candidates`);\n\nassessments.forEach((item, index) => {\n  const data = item.json;\n  console.log(`\\nCandidate ${index + 1}: ${data.email || 'Unknown'}`);\n  console.log(`   Overall Score: ${data['Overall Score'] || 'N/A'}/100`);\n  console.log(`   Recommendation: ${data.Recommendation || 'N/A'}`);\n});\n\nreturn assessments;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1824, 3952],
+      "id": "4893c252-b323-4fd0-b99e-8de55d07bb8f",
+      "name": "Log DeepSeek Results1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-candidates",
+              "leftValue": "={{ $json.hasCandidates }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [160, 3984],
+      "id": "4e9d711e-1b27-46a3-96d2-db5f73ed637b",
+      "name": "Has Candidates?1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643835011,
+          "mode": "list",
+          "cachedResultName": "Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=643835011"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.candidateInfo.originalData.candidateInfo.email }}",
+            "Overall Score": "={{ $json[\"Overall Score\"] }}",
+            "Recommendation": "={{ $json.Recommendation }}",
+            "Summary": "={{ $json.Summary }}",
+            "Assessment Summary": "={{ $json[\"Assessment Summary\"] }}",
+            "Job Longevity": "={{ $json[\"Job Longevity\"] }}",
+            "CV Integrity": "={{ $json[\"CV Integrity\"] }}"
+          },
+          "matchingColumns": ["Email"],
+          "schema": [
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Overall Score",
+              "displayName": "Overall Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Recommendation",
+              "displayName": "Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Assessment Summary",
+              "displayName": "Assessment Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Longevity",
+              "displayName": "Job Longevity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CV Integrity",
+              "displayName": "CV Integrity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-assessment-sheet",
+      "name": "Update Candidates with Assessment",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [1600, 3984],
+      "typeVersion": 4,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter candidates ready for DeepSeek assessment\nconst candidates = $input.all();\nconst readyForAssessment = [];\n\nfor (const item of candidates) {\n  const candidate = item.json;\n  \n  // Check if already assessed\n  if (candidate['Overall Score'] && candidate['Overall Score'] !== '0' && candidate['Overall Score'] !== '') {\n    console.log(`Skipping ${candidate.Email} - already assessed`);\n    continue;\n  }\n  \n  // Check if has CV\n  if (!candidate.Field || candidate.Field === '') {\n    console.log(`Skipping ${candidate.Email} - no CV uploaded`);\n    continue;\n  }\n  \n  readyForAssessment.push(item);\n}\n\nconsole.log(`Found ${readyForAssessment.length} candidates ready for assessment`);\n\nif (readyForAssessment.length === 0) {\n  return [{ json: { hasCandidates: false, message: 'No candidates ready for assessment' } }];\n}\n\nreturn readyForAssessment.map(item => ({\n  json: {\n    ...item.json,\n    hasCandidates: true\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-64, 3984],
+      "id": "filter-ready-assessment",
+      "name": "Filter Ready for DeepSeek Assessment"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-960, 3984],
+      "id": "schedule-trigger-assessment",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "connections": {
+    "Set Workflow Variables3": {
+      "main": [
+        [
+          {
+            "node": "Get Candidates for AI Assessment2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Candidates for AI Assessment2": {
+      "main": [
+        [
+          {
+            "node": "Filter Ready for DeepSeek Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Ready for DeepSeek Assessment": {
+      "main": [
+        [
+          {
+            "node": "Has Candidates?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Candidates?1": {
+      "main": [
+        [
+          {
+            "node": "Download CV for DeepSeek1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download CV for DeepSeek1": {
+      "main": [
+        [
+          {
+            "node": "Extract CV Text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract CV Text1": {
+      "main": [
+        [
+          {
+            "node": "Prepare DeepSeek Assessment Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DeepSeek Assessment Data1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Format DeepSeek Assessment for Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format DeepSeek Assessment for Sheets": {
+      "main": [
+        [
+          {
+            "node": "Update Candidates with Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Candidates with Assessment": {
+      "main": [
+        [
+          {
+            "node": "Log DeepSeek Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Workflow Variables3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 1
+}
