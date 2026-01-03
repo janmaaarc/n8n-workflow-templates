@@ -2,6 +2,8 @@
 
 Deal management automation for GoHighLevel: stage-based task creation, stalled deal detection, engagement scoring, and weekly forecasting.
 
+> **Part of CRM Suite:** [Lead Management](../n8n-crm-lead-management/) → Sales Pipeline → [Customer Onboarding](../n8n-crm-customer-onboarding/)
+
 ## What It Does
 
 ### Flow 1: Deal Stage Changes
@@ -82,8 +84,8 @@ Deal management automation for GoHighLevel: stage-based task creation, stalled d
 
 ## Required Credentials
 
-- GoHighLevel API (HTTP Header Auth with API key)
-- Slack API (for notifications)
+- **GoHighLevel API** - HTTP Header Auth with API key
+- **Slack API** - For notifications
 
 ## Environment Variables
 
@@ -141,7 +143,7 @@ Expected payload:
   "current_stage": "proposal",
   "assigned_to": "user_id",
   "source": "website",
-  "created_at": "2024-01-15T10:00:00Z",
+  "created_at": "2025-01-15T10:00:00Z",
   "customField": {
     "plan": "enterprise"
   }

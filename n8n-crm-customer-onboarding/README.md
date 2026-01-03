@@ -2,6 +2,8 @@
 
 Post-sale automation for GoHighLevel: customer onboarding sequences, health scoring, churn prevention, and feedback collection.
 
+> **Part of CRM Suite:** [Lead Management](../n8n-crm-lead-management/) → [Sales Pipeline](../n8n-crm-sales-pipeline/) → Customer Onboarding
+
 ## What It Does
 
 ### Flow 1: New Customer Onboarding
@@ -82,8 +84,8 @@ Post-sale automation for GoHighLevel: customer onboarding sequences, health scor
 
 ## Required Credentials
 
-- GoHighLevel API (HTTP Header Auth with API key)
-- Slack API (for team notifications)
+- **GoHighLevel API** - HTTP Header Auth with API key
+- **Slack API** - For team notifications
 
 ## Environment Variables
 

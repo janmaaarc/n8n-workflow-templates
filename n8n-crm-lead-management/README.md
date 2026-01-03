@@ -2,6 +2,8 @@
 
 Complete CRM automation system for GoHighLevel with intelligent lead scoring, lifecycle management, pipeline automation, and multi-channel tracking (GA4 + Meta).
 
+> **Part of CRM Suite:** Lead Management → [Sales Pipeline](../n8n-crm-sales-pipeline/) → [Customer Onboarding](../n8n-crm-customer-onboarding/)
+
 ## What It Does
 
 ### Flow 1: New Lead Processing
@@ -74,10 +76,10 @@ Complete CRM automation system for GoHighLevel with intelligent lead scoring, li
 
 ## Required Credentials
 
-- GoHighLevel API (HTTP Header Auth with API key)
-- Slack API (for team notifications)
-- Google Analytics 4 (Measurement Protocol)
-- Meta Conversions API (for pixel tracking)
+- **GoHighLevel API** - HTTP Header Auth with API key
+- **Slack API** - For team notifications
+- **Google Analytics 4** - Measurement Protocol
+- **Meta Conversions API** - For pixel tracking
 
 ## Environment Variables
 
@@ -119,8 +121,6 @@ META_ACCESS_TOKEN=your_meta_token
 7. Activate the workflow
 
 ## Webhook Endpoints
-
-After activation, you'll have these webhooks:
 
 ### New Lead Webhook
 ```
@@ -184,16 +184,25 @@ Create these custom fields in your GHL location:
 
 The workflow automatically applies these tags:
 
+**Engagement Tags:**
 - `high-engagement` - 5+ pages viewed
 - `engaged-visitor` - 3+ minutes on site
 - `content-engaged` - Downloaded a resource
 - `video-viewer` - Watched a video
+
+**Company Tags:**
 - `enterprise` / `mid-market` / `smb` - Company size
+
+**Intent Tags:**
 - `high-budget` - Budget > $10,000
 - `hot-lead` - Immediate timeline
 - `warm-lead` - 30-day timeline
 - `nurture` - 90-day timeline
+
+**Priority Tags:**
 - `priority-high` / `priority-medium` / `priority-low` - Based on score
+
+**Status Tags:**
 - `stale-lead` - No activity in 30+ days
 - `cooling-off` - No activity in 14-30 days
 - `demo-requested` - Submitted demo request form
