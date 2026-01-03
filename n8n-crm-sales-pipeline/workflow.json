@@ -1,0 +1,875 @@
+{
+  "name": "CRM Sales Pipeline Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deal-stage-change",
+        "options": {}
+      },
+      "id": "stage-change-webhook",
+      "name": "Deal Stage Change Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "deal-stage-change"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process deal stage change and determine actions\nconst deal = $input.first().json;\n\n// Stage configuration with required actions\nconst stageConfig = {\n  'new': {\n    nextSteps: ['Send intro email', 'Schedule discovery call'],\n    taskDue: 1, // days\n    requiredFields: ['email', 'phone'],\n    autoTasks: true\n  },\n  'discovery': {\n    nextSteps: ['Complete discovery call', 'Identify pain points', 'Qualify budget'],\n    taskDue: 2,\n    requiredFields: ['company_size', 'budget_range'],\n    autoTasks: true\n  },\n  'proposal': {\n    nextSteps: ['Send proposal', 'Schedule proposal review call'],\n    taskDue: 3,\n    requiredFields: ['decision_maker', 'timeline'],\n    autoTasks: true,\n    notifyManager: true\n  },\n  'negotiation': {\n    nextSteps: ['Address objections', 'Finalize terms', 'Get verbal commitment'],\n    taskDue: 5,\n    requiredFields: ['contract_value', 'start_date'],\n    autoTasks: true,\n    notifyManager: true,\n    highPriority: true\n  },\n  'closed-won': {\n    nextSteps: ['Send contract', 'Trigger onboarding', 'Update forecast'],\n    autoTasks: false,\n    triggerOnboarding: true,\n    celebrate: true\n  },\n  'closed-lost': {\n    nextSteps: ['Log loss reason', 'Schedule follow-up for 90 days'],\n    autoTasks: false,\n    requestFeedback: true\n  }\n};\n\nconst previousStage = deal.previous_stage || 'unknown';\nconst currentStage = deal.current_stage || deal.stage;\nconst config = stageConfig[currentStage] || {};\n\n// Calculate stage duration\nconst stageEnteredAt = new Date();\nconst dealCreatedAt = new Date(deal.created_at || deal.dateAdded);\nconst daysInPipeline = Math.floor((stageEnteredAt - dealCreatedAt) / (1000 * 60 * 60 * 24));\n\n// Check for stalled deal (in same stage too long)\nconst lastStageChange = new Date(deal.last_stage_change || deal.dateUpdated);\nconst daysInCurrentStage = Math.floor((stageEnteredAt - lastStageChange) / (1000 * 60 * 60 * 24));\nconst isStalled = daysInCurrentStage > 7 && !['closed-won', 'closed-lost'].includes(currentStage);\n\n// Determine deal priority\nlet priority = 'normal';\nif (deal.monetary_value >= 50000) priority = 'high';\nelse if (deal.monetary_value >= 20000) priority = 'medium';\nif (config.highPriority) priority = 'high';\n\n// Calculate weighted pipeline value\nconst stageWeights = {\n  'new': 0.1,\n  'discovery': 0.2,\n  'proposal': 0.5,\n  'negotiation': 0.75,\n  'closed-won': 1.0,\n  'closed-lost': 0\n};\nconst weightedValue = (deal.monetary_value || 0) * (stageWeights[currentStage] || 0);\n\nreturn {\n  dealId: deal.id || deal.opportunity_id,\n  dealTitle: deal.title || deal.name,\n  contactId: deal.contact_id,\n  contactEmail: deal.email,\n  contactName: deal.contact_name || `${deal.first_name || ''} ${deal.last_name || ''}`.trim(),\n  companyName: deal.company || deal.companyName,\n  monetaryValue: deal.monetary_value || 0,\n  weightedValue: weightedValue,\n  previousStage: previousStage,\n  currentStage: currentStage,\n  stageConfig: config,\n  daysInPipeline: daysInPipeline,\n  daysInCurrentStage: daysInCurrentStage,\n  isStalled: isStalled,\n  priority: priority,\n  assignedTo: deal.assigned_to || deal.owner_id,\n  stageEnteredAt: stageEnteredAt.toISOString(),\n  source: deal.source,\n  tags: deal.tags || [],\n  customFields: deal.customField || {}\n};"
+      },
+      "id": "process-stage-change",
+      "name": "Process Stage Change",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "closed-won",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "closed-won",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "closed-lost",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "closed-lost",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "active-stage",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.currentStage }}",
+                    "rightValue": "closed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notContains"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-by-stage",
+      "name": "Route by Stage Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $json.stageConfig.nextSteps[0] }} - {{ $json.dealTitle }}\",\n  \"body\": \"Deal: {{ $json.dealTitle }}\\nValue: ${{ $json.monetaryValue }}\\nStage: {{ $json.currentStage }}\\nCompany: {{ $json.companyName }}\\n\\nNext Steps:\\n{{ $json.stageConfig.nextSteps.map((s, i) => (i+1) + '. ' + s).join('\\n') }}\",\n  \"dueDate\": \"{{ $now.plus($json.stageConfig.taskDue || 2, 'days').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $json.assignedTo }}\"\n}",
+        "options": {}
+      },
+      "id": "create-stage-task",
+      "name": "Create Stage Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities/{{ $json.dealId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customField\": {\n    \"stage_entered_at\": \"{{ $json.stageEnteredAt }}\",\n    \"days_in_pipeline\": \"{{ $json.daysInPipeline }}\",\n    \"weighted_value\": \"{{ $json.weightedValue }}\",\n    \"deal_priority\": \"{{ $json.priority }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-deal-fields",
+      "name": "Update Deal Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "notify-manager",
+              "leftValue": "={{ $json.stageConfig.notifyManager }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-notify-manager",
+      "name": "Notify Manager?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#sales-pipeline",
+        "text": "=:chart_with_upwards_trend: *Deal Stage Update*\n\n*Deal:* {{ $('Process Stage Change').item.json.dealTitle }}\n*Company:* {{ $('Process Stage Change').item.json.companyName }}\n*Value:* ${{ $('Process Stage Change').item.json.monetaryValue.toLocaleString() }}\n*Stage:* {{ $('Process Stage Change').item.json.previousStage }} → *{{ $('Process Stage Change').item.json.currentStage }}*\n*Priority:* {{ $('Process Stage Change').item.json.priority }}\n*Days in Pipeline:* {{ $('Process Stage Change').item.json.daysInPipeline }}\n\n<{{ $env.GHL_APP_URL }}/opportunities/{{ $('Process Stage Change').item.json.dealId }}|View Deal>",
+        "otherOptions": {}
+      },
+      "id": "slack-manager-notify",
+      "name": "Notify Sales Manager",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1440, 180],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sales-wins",
+        "text": "=:tada: :trophy: *DEAL WON!* :trophy: :tada:\n\n*Deal:* {{ $json.dealTitle }}\n*Company:* {{ $json.companyName }}\n*Value:* *${{ $json.monetaryValue.toLocaleString() }}*\n*Days to Close:* {{ $json.daysInPipeline }}\n*Sales Rep:* <@{{ $json.assignedTo }}>\n\nCongratulations! :champagne:",
+        "otherOptions": {}
+      },
+      "id": "slack-celebrate",
+      "name": "Celebrate Win",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [960, 480],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ONBOARDING_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $json.contactId }}\",\n  \"contact_id\": \"{{ $json.contactId }}\",\n  \"email\": \"{{ $json.contactEmail }}\",\n  \"first_name\": \"{{ $json.contactName.split(' ')[0] }}\",\n  \"last_name\": \"{{ $json.contactName.split(' ').slice(1).join(' ') }}\",\n  \"company\": \"{{ $json.companyName }}\",\n  \"plan\": \"{{ $json.customFields.plan || 'standard' }}\",\n  \"deal_value\": {{ $json.monetaryValue }}\n}",
+        "options": {}
+      },
+      "id": "trigger-onboarding",
+      "name": "Trigger Customer Onboarding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 480]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities/{{ $json.dealId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"won\",\n  \"customField\": {\n    \"closed_at\": \"{{ $now.toISO() }}\",\n    \"days_to_close\": \"{{ $json.daysInPipeline }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-won-deal",
+      "name": "Update Won Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities/{{ $json.dealId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"lost\",\n  \"customField\": {\n    \"closed_at\": \"{{ $now.toISO() }}\",\n    \"days_to_close\": \"{{ $json.daysInPipeline }}\",\n    \"loss_reason\": \"{{ $json.customFields.loss_reason || 'Not specified' }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-lost-deal",
+      "name": "Update Lost Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 780],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Follow-up: Lost Deal - {{ $json.dealTitle }}\",\n  \"body\": \"This deal was lost. Consider reaching out in 90 days.\\n\\nOriginal Value: ${{ $json.monetaryValue }}\\nLoss Reason: {{ $json.customFields.loss_reason || 'Not specified' }}\\nDays in Pipeline: {{ $json.daysInPipeline }}\",\n  \"dueDate\": \"{{ $now.plus(90, 'days').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $json.assignedTo }}\"\n}",
+        "options": {}
+      },
+      "id": "create-followup-task",
+      "name": "Create 90-Day Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 780],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sales-pipeline",
+        "text": "=:x: *Deal Lost*\n\n*Deal:* {{ $json.dealTitle }}\n*Company:* {{ $json.companyName }}\n*Value:* ${{ $json.monetaryValue.toLocaleString() }}\n*Days in Pipeline:* {{ $json.daysInPipeline }}\n*Reason:* {{ $json.customFields.loss_reason || 'Not specified' }}\n\n90-day follow-up task created.",
+        "otherOptions": {}
+      },
+      "id": "slack-lost-notify",
+      "name": "Notify Lost Deal",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1440, 780],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "stalled-deals-schedule",
+      "name": "Check Stalled Deals",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 1000]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "open"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-open-deals",
+      "name": "Fetch Open Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 1000],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Identify stalled deals and calculate pipeline metrics\nconst opportunities = $input.first().json.opportunities || [];\nconst stalledDeals = [];\nconst pipelineMetrics = {\n  totalValue: 0,\n  weightedValue: 0,\n  dealCount: 0,\n  byStage: {},\n  stalledCount: 0,\n  avgDaysInPipeline: 0\n};\n\nconst stageWeights = {\n  'new': 0.1,\n  'discovery': 0.2,\n  'proposal': 0.5,\n  'negotiation': 0.75\n};\n\nconst stalledThresholds = {\n  'new': 3,\n  'discovery': 5,\n  'proposal': 7,\n  'negotiation': 10\n};\n\nlet totalDays = 0;\n\nfor (const deal of opportunities) {\n  const stage = deal.pipelineStage || deal.stage_id;\n  const stageName = deal.stageName || stage;\n  const value = deal.monetaryValue || 0;\n  const stageEnteredAt = new Date(deal.customField?.stage_entered_at || deal.dateUpdated);\n  const daysInStage = Math.floor((Date.now() - stageEnteredAt) / (1000 * 60 * 60 * 24));\n  const dealCreatedAt = new Date(deal.dateAdded);\n  const daysInPipeline = Math.floor((Date.now() - dealCreatedAt) / (1000 * 60 * 60 * 24));\n  \n  // Accumulate metrics\n  pipelineMetrics.totalValue += value;\n  pipelineMetrics.weightedValue += value * (stageWeights[stageName] || 0.3);\n  pipelineMetrics.dealCount++;\n  totalDays += daysInPipeline;\n  \n  // Track by stage\n  if (!pipelineMetrics.byStage[stageName]) {\n    pipelineMetrics.byStage[stageName] = { count: 0, value: 0 };\n  }\n  pipelineMetrics.byStage[stageName].count++;\n  pipelineMetrics.byStage[stageName].value += value;\n  \n  // Check if stalled\n  const threshold = stalledThresholds[stageName] || 7;\n  if (daysInStage >= threshold) {\n    pipelineMetrics.stalledCount++;\n    stalledDeals.push({\n      dealId: deal.id,\n      dealTitle: deal.name || deal.title,\n      contactId: deal.contact?.id || deal.contactId,\n      contactName: deal.contact?.name || deal.contactName,\n      companyName: deal.contact?.companyName || deal.companyName,\n      monetaryValue: value,\n      stage: stageName,\n      daysInStage: daysInStage,\n      daysInPipeline: daysInPipeline,\n      assignedTo: deal.assignedTo || deal.userId,\n      threshold: threshold,\n      overdueBy: daysInStage - threshold\n    });\n  }\n}\n\npipelineMetrics.avgDaysInPipeline = pipelineMetrics.dealCount > 0 \n  ? Math.round(totalDays / pipelineMetrics.dealCount) \n  : 0;\n\n// Sort stalled deals by value (highest first)\nstalledDeals.sort((a, b) => b.monetaryValue - a.monetaryValue);\n\nreturn {\n  stalledDeals: stalledDeals,\n  pipelineMetrics: pipelineMetrics,\n  hasStalled: stalledDeals.length > 0,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "analyze-pipeline",
+      "name": "Analyze Pipeline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 1000]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-stalled",
+              "leftValue": "={{ $json.hasStalled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-stalled",
+      "name": "Has Stalled Deals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 1000]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create individual items for each stalled deal\nconst data = $input.first().json;\nconst stalledDeals = data.stalledDeals;\n\nreturn stalledDeals.map(deal => ({ json: deal }));"
+      },
+      "id": "split-stalled-deals",
+      "name": "Split Stalled Deals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 880]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"STALLED: {{ $json.dealTitle }} - {{ $json.daysInStage }} days in {{ $json.stage }}\",\n  \"body\": \"This deal has been stalled for {{ $json.overdueBy }} days beyond expected.\\n\\nDeal: {{ $json.dealTitle }}\\nValue: ${{ $json.monetaryValue }}\\nStage: {{ $json.stage }}\\nDays in Stage: {{ $json.daysInStage }}\\n\\nAction needed to move this forward.\",\n  \"dueDate\": \"{{ $now.plus(1, 'days').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $json.assignedTo }}\"\n}",
+        "options": {}
+      },
+      "id": "create-stalled-task",
+      "name": "Create Stalled Deal Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 880],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sales-pipeline",
+        "text": "=:warning: *Stalled Pipeline Alert*\n\n*{{ $('Analyze Pipeline').item.json.pipelineMetrics.stalledCount }} deal(s) stalled*\n\nTop stalled deals:\n{{ $('Analyze Pipeline').item.json.stalledDeals.slice(0, 5).map(d => `- ${d.dealTitle} ($${d.monetaryValue.toLocaleString()}) - ${d.daysInStage} days in ${d.stage}`).join('\\n') }}\n\n*Pipeline Summary:*\n- Total Value: ${{ $('Analyze Pipeline').item.json.pipelineMetrics.totalValue.toLocaleString() }}\n- Weighted Value: ${{ Math.round($('Analyze Pipeline').item.json.pipelineMetrics.weightedValue).toLocaleString() }}\n- Open Deals: {{ $('Analyze Pipeline').item.json.pipelineMetrics.dealCount }}\n- Avg Days in Pipeline: {{ $('Analyze Pipeline').item.json.pipelineMetrics.avgDaysInPipeline }}",
+        "otherOptions": {}
+      },
+      "id": "slack-stalled-alert",
+      "name": "Slack Stalled Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1200, 1120],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "weekly-forecast-schedule",
+      "name": "Weekly Forecast",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 1300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "open"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-all-deals",
+      "name": "Fetch All Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 1300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate weekly sales forecast\nconst opportunities = $input.first().json.opportunities || [];\nconst now = new Date();\n\nconst stageWeights = {\n  'new': 0.1,\n  'discovery': 0.2,\n  'proposal': 0.5,\n  'negotiation': 0.75\n};\n\nconst forecast = {\n  thisMonth: { deals: 0, value: 0, weighted: 0 },\n  nextMonth: { deals: 0, value: 0, weighted: 0 },\n  thisQuarter: { deals: 0, value: 0, weighted: 0 },\n  byRep: {},\n  byStage: {},\n  topDeals: []\n};\n\nconst thisMonth = now.getMonth();\nconst thisYear = now.getFullYear();\nconst nextMonth = (thisMonth + 1) % 12;\nconst quarterEnd = new Date(thisYear, Math.ceil((thisMonth + 1) / 3) * 3, 0);\n\nfor (const deal of opportunities) {\n  const stage = deal.stageName || deal.pipelineStage || 'unknown';\n  const value = deal.monetaryValue || 0;\n  const weight = stageWeights[stage] || 0.3;\n  const weightedValue = value * weight;\n  const rep = deal.assignedTo || 'Unassigned';\n  const expectedClose = new Date(deal.customField?.expected_close_date || deal.dateUpdated);\n  \n  // By rep\n  if (!forecast.byRep[rep]) {\n    forecast.byRep[rep] = { deals: 0, value: 0, weighted: 0 };\n  }\n  forecast.byRep[rep].deals++;\n  forecast.byRep[rep].value += value;\n  forecast.byRep[rep].weighted += weightedValue;\n  \n  // By stage\n  if (!forecast.byStage[stage]) {\n    forecast.byStage[stage] = { deals: 0, value: 0 };\n  }\n  forecast.byStage[stage].deals++;\n  forecast.byStage[stage].value += value;\n  \n  // Timeline forecasts (simplified - based on stage probability)\n  if (weight >= 0.5) {\n    forecast.thisMonth.deals++;\n    forecast.thisMonth.value += value;\n    forecast.thisMonth.weighted += weightedValue;\n  } else if (weight >= 0.2) {\n    forecast.nextMonth.deals++;\n    forecast.nextMonth.value += value;\n    forecast.nextMonth.weighted += weightedValue;\n  }\n  \n  forecast.thisQuarter.deals++;\n  forecast.thisQuarter.value += value;\n  forecast.thisQuarter.weighted += weightedValue;\n  \n  // Track top deals\n  forecast.topDeals.push({\n    title: deal.name || deal.title,\n    value: value,\n    weightedValue: weightedValue,\n    stage: stage,\n    company: deal.contact?.companyName || 'Unknown',\n    rep: rep\n  });\n}\n\n// Sort and limit top deals\nforecast.topDeals.sort((a, b) => b.value - a.value);\nforecast.topDeals = forecast.topDeals.slice(0, 10);\n\nreturn {\n  forecast: forecast,\n  generatedAt: now.toISOString(),\n  totalOpenDeals: opportunities.length,\n  totalPipelineValue: forecast.thisQuarter.value,\n  weightedForecast: forecast.thisQuarter.weighted\n};"
+      },
+      "id": "generate-forecast",
+      "name": "Generate Forecast",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 1300]
+    },
+    {
+      "parameters": {
+        "channel": "#sales-pipeline",
+        "text": "=:bar_chart: *Weekly Sales Forecast*\n\n*Pipeline Overview*\n- Open Deals: {{ $json.totalOpenDeals }}\n- Total Pipeline: ${{ $json.totalPipelineValue.toLocaleString() }}\n- Weighted Forecast: ${{ Math.round($json.weightedForecast).toLocaleString() }}\n\n*Expected This Month*\n- Deals: {{ $json.forecast.thisMonth.deals }}\n- Value: ${{ $json.forecast.thisMonth.value.toLocaleString() }}\n- Weighted: ${{ Math.round($json.forecast.thisMonth.weighted).toLocaleString() }}\n\n*Top Deals*\n{{ $json.forecast.topDeals.slice(0, 5).map(d => `- ${d.title} ($${d.value.toLocaleString()}) - ${d.stage}`).join('\\n') }}\n\n*By Stage*\n{{ Object.entries($json.forecast.byStage).map(([stage, data]) => `- ${stage}: ${data.deals} deals ($${data.value.toLocaleString()})`).join('\\n') }}",
+        "otherOptions": {}
+      },
+      "id": "slack-forecast",
+      "name": "Send Forecast Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [960, 1300],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deal-activity",
+        "options": {}
+      },
+      "id": "activity-webhook",
+      "name": "Deal Activity Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 1600],
+      "webhookId": "deal-activity"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process deal activity and update engagement score\nconst activity = $input.first().json;\n\nconst activityScores = {\n  'email_sent': 2,\n  'email_opened': 5,\n  'email_replied': 15,\n  'call_made': 10,\n  'call_answered': 20,\n  'meeting_scheduled': 25,\n  'meeting_completed': 35,\n  'proposal_sent': 30,\n  'proposal_viewed': 20,\n  'contract_sent': 40,\n  'contract_signed': 50\n};\n\nconst scoreIncrease = activityScores[activity.activity_type] || 5;\n\n// Determine if activity suggests stage change\nlet suggestedStage = null;\nif (activity.activity_type === 'meeting_completed') {\n  suggestedStage = 'discovery';\n} else if (activity.activity_type === 'proposal_sent') {\n  suggestedStage = 'proposal';\n} else if (activity.activity_type === 'contract_sent') {\n  suggestedStage = 'negotiation';\n} else if (activity.activity_type === 'contract_signed') {\n  suggestedStage = 'closed-won';\n}\n\nreturn {\n  dealId: activity.deal_id || activity.opportunity_id,\n  contactId: activity.contact_id,\n  activityType: activity.activity_type,\n  scoreIncrease: scoreIncrease,\n  suggestedStage: suggestedStage,\n  timestamp: new Date().toISOString(),\n  notes: activity.notes || ''\n};"
+      },
+      "id": "process-activity",
+      "name": "Process Activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 1600]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities/{{ $json.dealId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-deal",
+      "name": "Get Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 1600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate new engagement score\nconst activity = $('Process Activity').first().json;\nconst deal = $input.first().json.opportunity || $input.first().json;\n\nconst currentScore = parseInt(deal.customField?.engagement_score) || 0;\nconst newScore = Math.min(100, currentScore + activity.scoreIncrease);\n\nconst lastActivityCount = parseInt(deal.customField?.activity_count) || 0;\n\nreturn {\n  dealId: activity.dealId,\n  previousScore: currentScore,\n  newScore: newScore,\n  scoreIncrease: activity.scoreIncrease,\n  activityType: activity.activityType,\n  suggestedStage: activity.suggestedStage,\n  currentStage: deal.pipelineStage || deal.stage,\n  activityCount: lastActivityCount + 1,\n  dealTitle: deal.name || deal.title,\n  monetaryValue: deal.monetaryValue || 0\n};"
+      },
+      "id": "calculate-engagement",
+      "name": "Calculate Engagement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 1600]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities/{{ $json.dealId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customField\": {\n    \"engagement_score\": \"{{ $json.newScore }}\",\n    \"last_activity\": \"{{ $now.toISO() }}\",\n    \"last_activity_type\": \"{{ $json.activityType }}\",\n    \"activity_count\": \"{{ $json.activityCount }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-engagement",
+      "name": "Update Engagement Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 1600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Deal Stage Change Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Stage Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Stage Change": {
+      "main": [
+        [
+          {
+            "node": "Route by Stage Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Stage Type": {
+      "main": [
+        [
+          {
+            "node": "Celebrate Win",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Won Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Lost Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Stage Task",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Deal Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Deal Fields": {
+      "main": [
+        [
+          {
+            "node": "Notify Manager?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Manager?": {
+      "main": [
+        [
+          {
+            "node": "Notify Sales Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Celebrate Win": {
+      "main": [
+        [
+          {
+            "node": "Trigger Customer Onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lost Deal": {
+      "main": [
+        [
+          {
+            "node": "Create 90-Day Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create 90-Day Follow-up": {
+      "main": [
+        [
+          {
+            "node": "Notify Lost Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stalled Deals": {
+      "main": [
+        [
+          {
+            "node": "Fetch Open Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Open Deals": {
+      "main": [
+        [
+          {
+            "node": "Analyze Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Has Stalled Deals?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Stalled Deals?": {
+      "main": [
+        [
+          {
+            "node": "Split Stalled Deals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Slack Stalled Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Split Stalled Deals": {
+      "main": [
+        [
+          {
+            "node": "Create Stalled Deal Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Forecast": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Deals": {
+      "main": [
+        [
+          {
+            "node": "Generate Forecast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Forecast": {
+      "main": [
+        [
+          {
+            "node": "Send Forecast Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Activity Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Activity": {
+      "main": [
+        [
+          {
+            "node": "Get Deal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Deal": {
+      "main": [
+        [
+          {
+            "node": "Calculate Engagement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Engagement": {
+      "main": [
+        [
+          {
+            "node": "Update Engagement Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "CRM",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "GoHighLevel",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Sales",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Pipeline",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 5,
+  "pinData": {}
+}

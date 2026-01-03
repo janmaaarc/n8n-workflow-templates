@@ -4,14 +4,32 @@ Production-ready n8n automation workflows for AI, CRM, marketing, and recruitmen
 
 ## Workflows
 
-| Workflow | Category | Description |
-|----------|----------|-------------|
-| [Facebook Ad Library Scraper](./facebook-ad-scraper/) | Marketing | Scrapes competitor ads from Facebook, analyzes with GPT-4, outputs to Google Sheets |
-| [AI Furniture Customizer](./ai-furniture-customizer/) | AI / E-commerce | Generates AI furniture images with custom materials using Gemini |
-| [AI Interview Automation](./n8n-ai-interview-automation/) | Recruitment | Automates candidate screening, AI interviews, and follow-up reminders |
-| [AI CV Assessment](./n8n-ai-cv-assessment/) | Recruitment | Analyzes CVs with DeepSeek AI, generates scores and recommendations |
-| [CRM Lead Management](./n8n-crm-lead-management/) | CRM / Sales | GoHighLevel automation with lead scoring, lifecycle management, GA4 + Meta tracking |
-| [CRM Customer Onboarding](./n8n-crm-customer-onboarding/) | CRM / Success | Post-sale automation with health scoring, churn prevention, feedback collection |
+### CRM & Sales (GoHighLevel)
+
+| Workflow | Description |
+|----------|-------------|
+| [CRM Lead Management](./n8n-crm-lead-management/) | Lead scoring, lifecycle management, GA4 + Meta tracking |
+| [CRM Sales Pipeline](./n8n-crm-sales-pipeline/) | Deal stages, stalled detection, engagement scoring, forecasting |
+| [CRM Customer Onboarding](./n8n-crm-customer-onboarding/) | Health scoring, churn prevention, feedback collection |
+
+```
+Lead Management → Sales Pipeline → Customer Onboarding
+   (Pre-sale)      (Active deals)     (Post-sale)
+```
+
+### AI & Automation
+
+| Workflow | Description |
+|----------|-------------|
+| [AI Furniture Customizer](./ai-furniture-customizer/) | Generates AI furniture images with custom materials using Gemini |
+| [Facebook Ad Library Scraper](./facebook-ad-scraper/) | Scrapes competitor ads, analyzes with GPT-4, outputs to Sheets |
+
+### Recruitment
+
+| Workflow | Description |
+|----------|-------------|
+| [AI Interview Automation](./n8n-ai-interview-automation/) | Automates screening, AI interviews, and follow-up reminders |
+| [AI CV Assessment](./n8n-ai-cv-assessment/) | Analyzes CVs with DeepSeek AI, generates scores and recommendations |
 
 ## Quick Start
 
@@ -22,18 +40,24 @@ Production-ready n8n automation workflows for AI, CRM, marketing, and recruitmen
 
 ## Tech Stack
 
-- **n8n** - Workflow automation platform
-- **JavaScript** - Custom logic in Code nodes
-- **REST APIs** - HTTP integrations
-- **AI Models** - OpenAI GPT-4, Google Gemini, DeepSeek
-- **CRM** - GoHighLevel
-- **Analytics** - Google Analytics 4, Meta Conversions API
+| Technology | Usage |
+|------------|-------|
+| n8n | Workflow automation platform |
+| JavaScript | Custom logic in Code nodes |
+| GoHighLevel | CRM integration |
+| OpenAI GPT-4 | AI analysis and generation |
+| Google Gemini | Image generation |
+| DeepSeek | CV assessment |
+| GA4 + Meta | Analytics tracking |
 
 ## Structure
 
 Each workflow folder contains:
-- `workflow.json` - The n8n workflow (import this)
-- `README.md` - Setup instructions and documentation
+```
+workflow-name/
+├── workflow.json    # Import this into n8n
+└── README.md        # Setup instructions
+```
 
 ## Contributing
 
