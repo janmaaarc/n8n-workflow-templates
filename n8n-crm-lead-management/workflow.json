@@ -1,0 +1,665 @@
+{
+  "name": "CRM Lead Management & Automation System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-lead",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "New Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "new-lead-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lead Scoring Logic\nconst lead = $input.first().json;\n\nlet score = 0;\nconst tags = [];\nconst notes = [];\n\n// Source scoring\nconst sourceScores = {\n  'google_ads': 30,\n  'meta_ads': 25,\n  'organic': 20,\n  'referral': 35,\n  'direct': 15,\n  'email_campaign': 25\n};\nscore += sourceScores[lead.source] || 10;\n\n// Engagement scoring\nif (lead.pages_viewed > 5) {\n  score += 20;\n  tags.push('high-engagement');\n}\nif (lead.time_on_site > 180) {\n  score += 15;\n  tags.push('engaged-visitor');\n}\nif (lead.downloaded_resource) {\n  score += 25;\n  tags.push('content-engaged');\n}\nif (lead.watched_video) {\n  score += 20;\n  tags.push('video-viewer');\n}\n\n// Business fit scoring\nif (lead.company_size === 'enterprise') {\n  score += 30;\n  tags.push('enterprise');\n} else if (lead.company_size === 'mid-market') {\n  score += 20;\n  tags.push('mid-market');\n} else if (lead.company_size === 'smb') {\n  score += 10;\n  tags.push('smb');\n}\n\n// Budget indicator\nif (lead.budget && parseInt(lead.budget) > 10000) {\n  score += 25;\n  tags.push('high-budget');\n}\n\n// Timeline urgency\nif (lead.timeline === 'immediate') {\n  score += 30;\n  tags.push('hot-lead');\n} else if (lead.timeline === '30-days') {\n  score += 20;\n  tags.push('warm-lead');\n} else if (lead.timeline === '90-days') {\n  score += 10;\n  tags.push('nurture');\n}\n\n// Determine lifecycle stage\nlet lifecycleStage = 'subscriber';\nlet pipelineStage = 'new';\n\nif (score >= 80) {\n  lifecycleStage = 'sales-qualified';\n  pipelineStage = 'qualified';\n  tags.push('priority-high');\n} else if (score >= 50) {\n  lifecycleStage = 'marketing-qualified';\n  pipelineStage = 'engaged';\n  tags.push('priority-medium');\n} else if (score >= 25) {\n  lifecycleStage = 'lead';\n  pipelineStage = 'new';\n  tags.push('priority-low');\n}\n\n// Determine assignment\nlet assignedTo = 'unassigned';\nif (score >= 80) {\n  assignedTo = 'sales-team';\n} else if (score >= 50) {\n  assignedTo = 'sdr-team';\n}\n\nreturn {\n  ...lead,\n  lead_score: score,\n  tags: tags,\n  lifecycle_stage: lifecycleStage,\n  pipeline_stage: pipelineStage,\n  assigned_to: assignedTo,\n  scored_at: new Date().toISOString(),\n  notes: notes\n};"
+      },
+      "id": "lead-scoring",
+      "name": "Lead Scoring Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.email }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"firstName\": \"{{ $json.first_name }}\",\n  \"lastName\": \"{{ $json.last_name }}\",\n  \"name\": \"{{ $json.first_name }} {{ $json.last_name }}\",\n  \"companyName\": \"{{ $json.company }}\",\n  \"tags\": {{ JSON.stringify($json.tags) }},\n  \"source\": \"{{ $json.source }}\",\n  \"customField\": {\n    \"lead_score\": \"{{ $json.lead_score }}\",\n    \"lifecycle_stage\": \"{{ $json.lifecycle_stage }}\",\n    \"pipeline_stage\": \"{{ $json.pipeline_stage }}\",\n    \"assigned_to\": \"{{ $json.assigned_to }}\",\n    \"budget\": \"{{ $json.budget }}\",\n    \"timeline\": \"{{ $json.timeline }}\",\n    \"company_size\": \"{{ $json.company_size }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "ghl-create-contact",
+      "name": "Create GHL Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/pipelines/{{ $env.GHL_PIPELINE_ID }}/opportunities",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $('Lead Scoring Engine').item.json.first_name }} {{ $('Lead Scoring Engine').item.json.last_name }} - {{ $('Lead Scoring Engine').item.json.company }}\",\n  \"stageId\": \"{{ $env.GHL_STAGE_NEW }}\",\n  \"status\": \"open\",\n  \"contactId\": \"{{ $json.contact.id }}\",\n  \"monetaryValue\": {{ $('Lead Scoring Engine').item.json.budget || 0 }},\n  \"source\": \"{{ $('Lead Scoring Engine').item.json.source }}\"\n}",
+        "options": {}
+      },
+      "id": "ghl-create-opportunity",
+      "name": "Create Pipeline Opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-score",
+              "leftValue": "={{ $('Lead Scoring Engine').item.json.lead_score }}",
+              "rightValue": 80,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "score-router",
+      "name": "Route by Score",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $('Create GHL Contact').item.json.contact.id }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Urgent: Follow up with hot lead - {{ $('Lead Scoring Engine').item.json.first_name }} {{ $('Lead Scoring Engine').item.json.last_name }}\",\n  \"body\": \"Lead Score: {{ $('Lead Scoring Engine').item.json.lead_score }}\\nCompany: {{ $('Lead Scoring Engine').item.json.company }}\\nBudget: {{ $('Lead Scoring Engine').item.json.budget }}\\nTimeline: {{ $('Lead Scoring Engine').item.json.timeline }}\\n\\nThis is a high-priority lead. Contact within 5 minutes for best conversion rate.\",\n  \"dueDate\": \"{{ $now.plus(5, 'minutes').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $env.SALES_TEAM_USER_ID }}\"\n}",
+        "options": {}
+      },
+      "id": "create-urgent-task",
+      "name": "Create Urgent Follow-up Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $('Create GHL Contact').item.json.contact.id }}/workflow/{{ $env.GHL_NURTURE_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "add-to-nurture",
+      "name": "Add to Nurture Sequence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 420],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sales-alerts",
+        "text": "=:fire: *Hot Lead Alert!*\n\n*Name:* {{ $('Lead Scoring Engine').item.json.first_name }} {{ $('Lead Scoring Engine').item.json.last_name }}\n*Company:* {{ $('Lead Scoring Engine').item.json.company }}\n*Lead Score:* {{ $('Lead Scoring Engine').item.json.lead_score }}/100\n*Source:* {{ $('Lead Scoring Engine').item.json.source }}\n*Budget:* ${{ $('Lead Scoring Engine').item.json.budget }}\n*Timeline:* {{ $('Lead Scoring Engine').item.json.timeline }}\n\n<{{ $env.GHL_APP_URL }}/contacts/{{ $('Create GHL Contact').item.json.contact.id }}|View in GoHighLevel>",
+        "otherOptions": {}
+      },
+      "id": "slack-alert",
+      "name": "Slack Sales Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1680, 180],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.google-analytics.com/mp/collect",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "measurement_id",
+              "value": "={{ $env.GA4_MEASUREMENT_ID }}"
+            },
+            {
+              "name": "api_secret",
+              "value": "={{ $env.GA4_API_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"client_id\": \"{{ $('Lead Scoring Engine').item.json.client_id || $('Lead Scoring Engine').item.json.email }}\",\n  \"events\": [{\n    \"name\": \"generate_lead\",\n    \"params\": {\n      \"lead_score\": {{ $('Lead Scoring Engine').item.json.lead_score }},\n      \"lifecycle_stage\": \"{{ $('Lead Scoring Engine').item.json.lifecycle_stage }}\",\n      \"source\": \"{{ $('Lead Scoring Engine').item.json.source }}\",\n      \"value\": {{ $('Lead Scoring Engine').item.json.budget || 0 }},\n      \"currency\": \"USD\"\n    }\n  }]\n}",
+        "options": {}
+      },
+      "id": "ga4-event",
+      "name": "Track GA4 Lead Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 540]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v18.0/{{ $env.META_PIXEL_ID }}/events",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $env.META_ACCESS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"data\": [{\n    \"event_name\": \"Lead\",\n    \"event_time\": {{ Math.floor(Date.now() / 1000) }},\n    \"action_source\": \"website\",\n    \"user_data\": {\n      \"em\": [\"{{ $('Lead Scoring Engine').item.json.email }}\"],\n      \"ph\": [\"{{ $('Lead Scoring Engine').item.json.phone }}\"]\n    },\n    \"custom_data\": {\n      \"lead_score\": {{ $('Lead Scoring Engine').item.json.lead_score }},\n      \"lifecycle_stage\": \"{{ $('Lead Scoring Engine').item.json.lifecycle_stage }}\",\n      \"value\": {{ $('Lead Scoring Engine').item.json.budget || 0 }},\n      \"currency\": \"USD\"\n    }\n  }]\n}",
+        "options": {}
+      },
+      "id": "meta-conversion",
+      "name": "Send Meta Conversion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 720]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Hourly Lead Audit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 900]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rest.gohighlevel.com/v1/contacts/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "lifecycle_stage:lead"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-stale-leads",
+      "name": "Fetch Leads for Re-scoring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 900],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Re-score leads based on recent activity\nconst contacts = $input.first().json.contacts || [];\nconst results = [];\n\nfor (const contact of contacts) {\n  const customFields = contact.customField || {};\n  const currentScore = parseInt(customFields.lead_score) || 0;\n  let scoreAdjustment = 0;\n  const newTags = [...(contact.tags || [])];\n  \n  // Calculate days since last activity\n  const lastActivity = new Date(contact.dateUpdated || contact.dateAdded);\n  const daysSinceActivity = Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24));\n  \n  // Decay score for inactive leads\n  if (daysSinceActivity > 30) {\n    scoreAdjustment -= 20;\n    if (!newTags.includes('stale-lead')) {\n      newTags.push('stale-lead');\n    }\n  } else if (daysSinceActivity > 14) {\n    scoreAdjustment -= 10;\n    if (!newTags.includes('cooling-off')) {\n      newTags.push('cooling-off');\n    }\n  }\n  \n  // Boost for recent email opens/clicks\n  if (contact.emailStats) {\n    if (contact.emailStats.opened > 0) scoreAdjustment += 5;\n    if (contact.emailStats.clicked > 0) scoreAdjustment += 10;\n  }\n  \n  const newScore = Math.max(0, Math.min(100, currentScore + scoreAdjustment));\n  \n  // Determine if lifecycle stage needs update\n  let newLifecycleStage = customFields.lifecycle_stage;\n  if (newScore < 25 && customFields.lifecycle_stage !== 'subscriber') {\n    newLifecycleStage = 'subscriber';\n  }\n  \n  if (scoreAdjustment !== 0) {\n    results.push({\n      contactId: contact.id,\n      email: contact.email,\n      previousScore: currentScore,\n      newScore: newScore,\n      scoreAdjustment: scoreAdjustment,\n      newTags: newTags,\n      newLifecycleStage: newLifecycleStage,\n      daysSinceActivity: daysSinceActivity,\n      needsUpdate: true\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "rescore-leads",
+      "name": "Re-score Stale Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 900]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [960, 900]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify($json.newTags) }},\n  \"customField\": {\n    \"lead_score\": \"{{ $json.newScore }}\",\n    \"lifecycle_stage\": \"{{ $json.newLifecycleStage }}\",\n    \"last_rescored\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-contact-score",
+      "name": "Update Contact Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 900],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "contact-activity",
+        "options": {}
+      },
+      "id": "activity-webhook",
+      "name": "Contact Activity Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 1200],
+      "webhookId": "contact-activity-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process contact activity and determine actions\nconst activity = $input.first().json;\n\nconst activityScores = {\n  'email_opened': 5,\n  'email_clicked': 15,\n  'form_submitted': 25,\n  'page_viewed': 3,\n  'call_completed': 30,\n  'meeting_scheduled': 40,\n  'proposal_viewed': 35,\n  'reply_received': 20\n};\n\nconst scoreIncrease = activityScores[activity.activity_type] || 0;\n\n// Determine pipeline stage changes\nlet suggestedStageChange = null;\nif (activity.activity_type === 'meeting_scheduled') {\n  suggestedStageChange = 'meeting-booked';\n} else if (activity.activity_type === 'proposal_viewed') {\n  suggestedStageChange = 'proposal-sent';\n} else if (activity.activity_type === 'reply_received') {\n  suggestedStageChange = 'engaged';\n}\n\n// Check for trigger conditions\nconst triggers = [];\nif (activity.activity_type === 'form_submitted' && activity.form_name === 'demo-request') {\n  triggers.push('demo-requested');\n}\nif (activity.activity_type === 'page_viewed' && activity.page_url?.includes('/pricing')) {\n  triggers.push('pricing-viewed');\n}\n\nreturn {\n  contactId: activity.contact_id,\n  email: activity.email,\n  activityType: activity.activity_type,\n  scoreIncrease: scoreIncrease,\n  suggestedStageChange: suggestedStageChange,\n  triggers: triggers,\n  timestamp: new Date().toISOString(),\n  rawActivity: activity\n};"
+      },
+      "id": "process-activity",
+      "name": "Process Activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 1200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-current-contact",
+      "name": "Get Current Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 1200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge activity data with current contact and calculate new score\nconst activity = $('Process Activity').first().json;\nconst contact = $input.first().json.contact;\n\nconst currentScore = parseInt(contact.customField?.lead_score) || 0;\nconst newScore = Math.min(100, currentScore + activity.scoreIncrease);\n\n// Update lifecycle stage if score threshold crossed\nlet newLifecycleStage = contact.customField?.lifecycle_stage || 'subscriber';\nif (newScore >= 80 && newLifecycleStage !== 'sales-qualified') {\n  newLifecycleStage = 'sales-qualified';\n} else if (newScore >= 50 && newLifecycleStage === 'subscriber') {\n  newLifecycleStage = 'marketing-qualified';\n}\n\n// Merge tags\nconst existingTags = contact.tags || [];\nconst newTags = [...new Set([...existingTags, ...activity.triggers])];\n\n// Remove stale tags if contact is now active\nconst activeIndex = newTags.indexOf('stale-lead');\nif (activeIndex > -1) newTags.splice(activeIndex, 1);\nconst coolingIndex = newTags.indexOf('cooling-off');\nif (coolingIndex > -1) newTags.splice(coolingIndex, 1);\n\nreturn {\n  contactId: activity.contactId,\n  previousScore: currentScore,\n  newScore: newScore,\n  scoreIncrease: activity.scoreIncrease,\n  newLifecycleStage: newLifecycleStage,\n  previousLifecycleStage: contact.customField?.lifecycle_stage,\n  newTags: newTags,\n  suggestedStageChange: activity.suggestedStageChange,\n  activityType: activity.activityType,\n  stageChanged: newLifecycleStage !== contact.customField?.lifecycle_stage\n};"
+      },
+      "id": "calculate-updates",
+      "name": "Calculate Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 1200]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify($json.newTags) }},\n  \"customField\": {\n    \"lead_score\": \"{{ $json.newScore }}\",\n    \"lifecycle_stage\": \"{{ $json.newLifecycleStage }}\",\n    \"last_activity\": \"{{ $now.toISO() }}\",\n    \"last_activity_type\": \"{{ $json.activityType }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-activity-contact",
+      "name": "Update Contact from Activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 1200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "stage-changed",
+              "leftValue": "={{ $('Calculate Updates').item.json.stageChanged }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-stage-change",
+      "name": "Check Stage Change",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 1200]
+    },
+    {
+      "parameters": {
+        "channel": "#sales-alerts",
+        "text": "=:chart_with_upwards_trend: *Lead Stage Upgrade!*\n\n*Contact:* {{ $('Get Current Contact').item.json.contact.firstName }} {{ $('Get Current Contact').item.json.contact.lastName }}\n*Email:* {{ $('Get Current Contact').item.json.contact.email }}\n*Previous Stage:* {{ $('Calculate Updates').item.json.previousLifecycleStage }}\n*New Stage:* {{ $('Calculate Updates').item.json.newLifecycleStage }}\n*Score:* {{ $('Calculate Updates').item.json.previousScore }} -> {{ $('Calculate Updates').item.json.newScore }}\n*Trigger:* {{ $('Calculate Updates').item.json.activityType }}\n\n<{{ $env.GHL_APP_URL }}/contacts/{{ $('Calculate Updates').item.json.contactId }}|View Contact>",
+        "otherOptions": {}
+      },
+      "id": "slack-stage-change",
+      "name": "Notify Stage Change",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1680, 1080],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lead Scoring Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Scoring Engine": {
+      "main": [
+        [
+          {
+            "node": "Create GHL Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create GHL Contact": {
+      "main": [
+        [
+          {
+            "node": "Create Pipeline Opportunity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Track GA4 Lead Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Meta Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pipeline Opportunity": {
+      "main": [
+        [
+          {
+            "node": "Route by Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Score": {
+      "main": [
+        [
+          {
+            "node": "Create Urgent Follow-up Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add to Nurture Sequence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Urgent Follow-up Task": {
+      "main": [
+        [
+          {
+            "node": "Slack Sales Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hourly Lead Audit": {
+      "main": [
+        [
+          {
+            "node": "Fetch Leads for Re-scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Leads for Re-scoring": {
+      "main": [
+        [
+          {
+            "node": "Re-score Stale Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-score Stale Leads": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Update Contact Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Activity Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Activity": {
+      "main": [
+        [
+          {
+            "node": "Get Current Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Contact": {
+      "main": [
+        [
+          {
+            "node": "Calculate Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Updates": {
+      "main": [
+        [
+          {
+            "node": "Update Contact from Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Contact from Activity": {
+      "main": [
+        [
+          {
+            "node": "Check Stage Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stage Change": {
+      "main": [
+        [
+          {
+            "node": "Notify Stage Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "CRM",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "GoHighLevel",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Lead Management",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Automation",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 3,
+  "pinData": {}
+}

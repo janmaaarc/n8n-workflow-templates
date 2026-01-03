@@ -1,0 +1,1029 @@
+{
+  "name": "CRM Customer Onboarding & Retention",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-customer",
+        "options": {}
+      },
+      "id": "new-customer-webhook",
+      "name": "New Customer Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "new-customer-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process new customer and prepare onboarding\nconst customer = $input.first().json;\n\n// Calculate onboarding milestones\nconst now = new Date();\nconst milestones = {\n  welcome_email: now.toISOString(),\n  day_1_checkin: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString(),\n  day_3_tutorial: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),\n  day_7_review: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),\n  day_14_feedback: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),\n  day_30_testimonial: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()\n};\n\n// Determine customer segment\nlet segment = 'standard';\nlet priority = 'normal';\n\nif (customer.plan === 'enterprise' || customer.deal_value >= 10000) {\n  segment = 'enterprise';\n  priority = 'high';\n} else if (customer.plan === 'professional' || customer.deal_value >= 2500) {\n  segment = 'professional';\n  priority = 'medium';\n}\n\n// Calculate health score baseline\nlet healthScore = 100;\n\nreturn {\n  ...customer,\n  customer_id: customer.id || customer.contact_id,\n  segment: segment,\n  priority: priority,\n  health_score: healthScore,\n  onboarding_status: 'started',\n  onboarding_started_at: now.toISOString(),\n  milestones: milestones,\n  tags: ['new-customer', `segment-${segment}`, 'onboarding-active']\n};"
+      },
+      "id": "prepare-onboarding",
+      "name": "Prepare Onboarding",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.customer_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify($json.tags) }},\n  \"customField\": {\n    \"customer_segment\": \"{{ $json.segment }}\",\n    \"health_score\": \"{{ $json.health_score }}\",\n    \"onboarding_status\": \"{{ $json.onboarding_status }}\",\n    \"onboarding_started_at\": \"{{ $json.onboarding_started_at }}\",\n    \"lifecycle_stage\": \"customer\",\n    \"priority\": \"{{ $json.priority }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-customer-record",
+      "name": "Update Customer Record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $('Prepare Onboarding').item.json.customer_id }}/workflow/{{ $env.GHL_ONBOARDING_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "trigger-onboarding-sequence",
+      "name": "Trigger Onboarding Sequence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-enterprise",
+              "leftValue": "={{ $('Prepare Onboarding').item.json.segment }}",
+              "rightValue": "enterprise",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-enterprise",
+      "name": "Is Enterprise?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $('Prepare Onboarding').item.json.customer_id }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Schedule Enterprise Kickoff Call - {{ $('Prepare Onboarding').item.json.first_name }} {{ $('Prepare Onboarding').item.json.last_name }}\",\n  \"body\": \"New enterprise customer onboarded.\\n\\nCompany: {{ $('Prepare Onboarding').item.json.company }}\\nDeal Value: ${{ $('Prepare Onboarding').item.json.deal_value }}\\nPlan: {{ $('Prepare Onboarding').item.json.plan }}\\n\\nSchedule a personalized kickoff call within 24 hours.\",\n  \"dueDate\": \"{{ $now.plus(24, 'hours').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $env.CUSTOMER_SUCCESS_MANAGER_ID }}\"\n}",
+        "options": {}
+      },
+      "id": "create-kickoff-task",
+      "name": "Create Kickoff Call Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 180],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#customer-success",
+        "text": "=:tada: *New Enterprise Customer!*\n\n*Name:* {{ $('Prepare Onboarding').item.json.first_name }} {{ $('Prepare Onboarding').item.json.last_name }}\n*Company:* {{ $('Prepare Onboarding').item.json.company }}\n*Deal Value:* ${{ $('Prepare Onboarding').item.json.deal_value }}\n*Plan:* {{ $('Prepare Onboarding').item.json.plan }}\n\nKickoff call task created. Please reach out within 24 hours.\n\n<{{ $env.GHL_APP_URL }}/contacts/{{ $('Prepare Onboarding').item.json.customer_id }}|View in GoHighLevel>",
+        "otherOptions": {}
+      },
+      "id": "slack-enterprise-alert",
+      "name": "Notify CS Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1680, 180],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "health-check-schedule",
+      "name": "Customer Health Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 600]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rest.gohighlevel.com/v1/contacts/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "lifecycle_stage:customer"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-customers",
+      "name": "Fetch Active Customers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate customer health scores\nconst contacts = $input.first().json.contacts || [];\nconst results = [];\n\nfor (const contact of contacts) {\n  const customFields = contact.customField || {};\n  let healthScore = parseInt(customFields.health_score) || 100;\n  const currentTags = contact.tags || [];\n  const newTags = [...currentTags];\n  const alerts = [];\n  \n  // Calculate days since last activity\n  const lastActivity = new Date(contact.dateUpdated || contact.dateAdded);\n  const daysSinceActivity = Math.floor((Date.now() - lastActivity) / (1000 * 60 * 60 * 24));\n  \n  // Calculate days as customer\n  const customerSince = new Date(customFields.onboarding_started_at || contact.dateAdded);\n  const daysAsCustomer = Math.floor((Date.now() - customerSince) / (1000 * 60 * 60 * 24));\n  \n  // Health score adjustments\n  \n  // Activity decay\n  if (daysSinceActivity > 30) {\n    healthScore -= 30;\n    if (!newTags.includes('inactive-30d')) newTags.push('inactive-30d');\n    alerts.push('No activity in 30+ days');\n  } else if (daysSinceActivity > 14) {\n    healthScore -= 15;\n    if (!newTags.includes('inactive-14d')) newTags.push('inactive-14d');\n  } else if (daysSinceActivity > 7) {\n    healthScore -= 5;\n  }\n  \n  // Remove old inactivity tags if now active\n  if (daysSinceActivity <= 7) {\n    const idx14 = newTags.indexOf('inactive-14d');\n    if (idx14 > -1) newTags.splice(idx14, 1);\n    const idx30 = newTags.indexOf('inactive-30d');\n    if (idx30 > -1) newTags.splice(idx30, 1);\n  }\n  \n  // Email engagement\n  if (contact.emailStats) {\n    if (contact.emailStats.opened === 0 && contact.emailStats.sent > 3) {\n      healthScore -= 20;\n      alerts.push('No email opens (3+ sent)');\n    } else if (contact.emailStats.clicked > 0) {\n      healthScore += 10;\n    }\n  }\n  \n  // Onboarding completion\n  const onboardingStatus = customFields.onboarding_status;\n  if (onboardingStatus === 'completed') {\n    healthScore += 15;\n  } else if (daysAsCustomer > 14 && onboardingStatus !== 'completed') {\n    healthScore -= 10;\n    alerts.push('Onboarding incomplete after 14 days');\n  }\n  \n  // Support tickets (negative indicator)\n  const openTickets = parseInt(customFields.open_support_tickets) || 0;\n  if (openTickets >= 3) {\n    healthScore -= 25;\n    alerts.push(`${openTickets} open support tickets`);\n  } else if (openTickets >= 1) {\n    healthScore -= 10;\n  }\n  \n  // Clamp score\n  healthScore = Math.max(0, Math.min(100, healthScore));\n  \n  // Determine risk level\n  let riskLevel = 'healthy';\n  if (healthScore < 40) {\n    riskLevel = 'high-risk';\n    if (!newTags.includes('churn-risk-high')) newTags.push('churn-risk-high');\n    // Remove lower risk tags\n    const idxMed = newTags.indexOf('churn-risk-medium');\n    if (idxMed > -1) newTags.splice(idxMed, 1);\n  } else if (healthScore < 60) {\n    riskLevel = 'medium-risk';\n    if (!newTags.includes('churn-risk-medium')) newTags.push('churn-risk-medium');\n    // Remove high risk tag if exists\n    const idxHigh = newTags.indexOf('churn-risk-high');\n    if (idxHigh > -1) newTags.splice(idxHigh, 1);\n  } else {\n    // Healthy - remove all risk tags\n    const idxHigh = newTags.indexOf('churn-risk-high');\n    if (idxHigh > -1) newTags.splice(idxHigh, 1);\n    const idxMed = newTags.indexOf('churn-risk-medium');\n    if (idxMed > -1) newTags.splice(idxMed, 1);\n  }\n  \n  const previousScore = parseInt(customFields.health_score) || 100;\n  const scoreChange = healthScore - previousScore;\n  \n  results.push({\n    contactId: contact.id,\n    email: contact.email,\n    firstName: contact.firstName,\n    lastName: contact.lastName,\n    company: contact.companyName,\n    segment: customFields.customer_segment,\n    previousScore: previousScore,\n    healthScore: healthScore,\n    scoreChange: scoreChange,\n    riskLevel: riskLevel,\n    daysSinceActivity: daysSinceActivity,\n    daysAsCustomer: daysAsCustomer,\n    onboardingStatus: onboardingStatus,\n    newTags: newTags,\n    alerts: alerts,\n    needsAttention: riskLevel !== 'healthy' || alerts.length > 0\n  });\n}\n\nreturn results;"
+      },
+      "id": "calculate-health",
+      "name": "Calculate Health Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 600]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "batch-customers",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [960, 600]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify($json.newTags) }},\n  \"customField\": {\n    \"health_score\": \"{{ $json.healthScore }}\",\n    \"risk_level\": \"{{ $json.riskLevel }}\",\n    \"last_health_check\": \"{{ $now.toISO() }}\",\n    \"days_since_activity\": \"{{ $json.daysSinceActivity }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-health-score",
+      "name": "Update Health Score",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-risk",
+              "leftValue": "={{ $json.riskLevel }}",
+              "rightValue": "high-risk",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-high-risk",
+      "name": "Is High Risk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"URGENT: Churn Risk - {{ $json.firstName }} {{ $json.lastName }}\",\n  \"body\": \"Customer at high risk of churning.\\n\\nHealth Score: {{ $json.healthScore }}/100\\nDays Since Activity: {{ $json.daysSinceActivity }}\\nSegment: {{ $json.segment }}\\n\\nAlerts:\\n{{ $json.alerts.join('\\n') }}\\n\\nReach out immediately to prevent churn.\",\n  \"dueDate\": \"{{ $now.plus(4, 'hours').toISO() }}\",\n  \"completed\": false,\n  \"assignedTo\": \"{{ $env.CUSTOMER_SUCCESS_MANAGER_ID }}\"\n}",
+        "options": {}
+      },
+      "id": "create-churn-task",
+      "name": "Create Churn Prevention Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#customer-success",
+        "text": "=:warning: *Churn Risk Alert*\n\n*Customer:* {{ $json.firstName }} {{ $json.lastName }}\n*Company:* {{ $json.company }}\n*Segment:* {{ $json.segment }}\n*Health Score:* {{ $json.healthScore }}/100 ({{ $json.scoreChange >= 0 ? '+' : '' }}{{ $json.scoreChange }})\n*Days Since Activity:* {{ $json.daysSinceActivity }}\n\n*Alerts:*\n{{ $json.alerts.map(a => '- ' + a).join('\\n') }}\n\n<{{ $env.GHL_APP_URL }}/contacts/{{ $json.contactId }}|View in GoHighLevel>",
+        "otherOptions": {}
+      },
+      "id": "slack-churn-alert",
+      "name": "Slack Churn Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1920, 480],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/workflow/{{ $env.GHL_REENGAGEMENT_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "trigger-reengagement",
+      "name": "Trigger Re-engagement",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "feedback-schedule",
+      "name": "Daily Feedback Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 900]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://rest.gohighlevel.com/v1/contacts/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "lifecycle_stage:customer AND health_score:>=70"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-happy-customers",
+      "name": "Fetch Happy Customers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 900],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter customers eligible for feedback/testimonial requests\nconst contacts = $input.first().json.contacts || [];\nconst results = [];\n\nfor (const contact of contacts) {\n  const customFields = contact.customField || {};\n  const tags = contact.tags || [];\n  \n  // Calculate days as customer\n  const customerSince = new Date(customFields.onboarding_started_at || contact.dateAdded);\n  const daysAsCustomer = Math.floor((Date.now() - customerSince) / (1000 * 60 * 60 * 24));\n  \n  // Check if already requested\n  const feedbackRequested = tags.includes('feedback-requested');\n  const testimonialRequested = tags.includes('testimonial-requested');\n  const reviewRequested = tags.includes('review-requested');\n  \n  const healthScore = parseInt(customFields.health_score) || 0;\n  \n  // Determine what to request\n  let action = null;\n  \n  // NPS Survey: 14+ days, health > 70, not requested\n  if (daysAsCustomer >= 14 && daysAsCustomer < 30 && healthScore >= 70 && !feedbackRequested) {\n    action = 'nps_survey';\n  }\n  // Testimonial: 30+ days, health > 80, not requested\n  else if (daysAsCustomer >= 30 && daysAsCustomer < 60 && healthScore >= 80 && !testimonialRequested) {\n    action = 'testimonial_request';\n  }\n  // G2/Review: 60+ days, health > 85, not requested\n  else if (daysAsCustomer >= 60 && healthScore >= 85 && !reviewRequested) {\n    action = 'review_request';\n  }\n  \n  if (action) {\n    results.push({\n      contactId: contact.id,\n      email: contact.email,\n      firstName: contact.firstName,\n      lastName: contact.lastName,\n      company: contact.companyName,\n      segment: customFields.customer_segment,\n      healthScore: healthScore,\n      daysAsCustomer: daysAsCustomer,\n      action: action,\n      existingTags: tags\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "filter-feedback-eligible",
+      "name": "Filter Feedback Eligible",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 900]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-results",
+              "leftValue": "={{ $json.contactId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-eligible",
+      "name": "Has Eligible Customers?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 900]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "nps_survey",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "nps_survey",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "testimonial_request",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "testimonial_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "review_request",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "review_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-by-action",
+      "name": "Route by Action Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1200, 900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/workflow/{{ $env.GHL_NPS_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "trigger-nps",
+      "name": "Trigger NPS Survey",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 780],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/workflow/{{ $env.GHL_TESTIMONIAL_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "trigger-testimonial",
+      "name": "Trigger Testimonial Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 900],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}/workflow/{{ $env.GHL_REVIEW_WORKFLOW_ID }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "trigger-review",
+      "name": "Trigger Review Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 1020],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify([...$json.existingTags, $json.action === 'nps_survey' ? 'feedback-requested' : $json.action === 'testimonial_request' ? 'testimonial-requested' : 'review-requested']) }}\n}",
+        "options": {}
+      },
+      "id": "tag-requested",
+      "name": "Tag as Requested",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 900],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding-milestone",
+        "options": {}
+      },
+      "id": "milestone-webhook",
+      "name": "Onboarding Milestone Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 1200],
+      "webhookId": "onboarding-milestone-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process onboarding milestone completion\nconst event = $input.first().json;\n\nconst milestonePoints = {\n  'account_setup': 10,\n  'first_login': 15,\n  'profile_complete': 10,\n  'first_action': 20,\n  'integration_connected': 15,\n  'team_invited': 10,\n  'tutorial_completed': 15,\n  'first_goal_achieved': 25\n};\n\nconst healthBoost = milestonePoints[event.milestone] || 5;\n\n// Check if this completes onboarding\nconst completedMilestones = event.completed_milestones || [];\nconst requiredMilestones = ['account_setup', 'first_login', 'first_action'];\nconst onboardingComplete = requiredMilestones.every(m => completedMilestones.includes(m));\n\nreturn {\n  contactId: event.contact_id,\n  email: event.email,\n  milestone: event.milestone,\n  healthBoost: healthBoost,\n  completedMilestones: completedMilestones,\n  onboardingComplete: onboardingComplete,\n  newOnboardingStatus: onboardingComplete ? 'completed' : 'in-progress',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "process-milestone",
+      "name": "Process Milestone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 1200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "get-customer",
+      "name": "Get Customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 1200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate updated health score after milestone\nconst milestone = $('Process Milestone').first().json;\nconst contact = $input.first().json.contact;\n\nconst currentScore = parseInt(contact.customField?.health_score) || 50;\nconst newScore = Math.min(100, currentScore + milestone.healthBoost);\n\nconst existingTags = contact.tags || [];\nconst newTags = [...existingTags];\n\n// Add milestone tag\nif (!newTags.includes(`milestone-${milestone.milestone}`)) {\n  newTags.push(`milestone-${milestone.milestone}`);\n}\n\n// Update onboarding tag if complete\nif (milestone.onboardingComplete) {\n  const activeIdx = newTags.indexOf('onboarding-active');\n  if (activeIdx > -1) newTags.splice(activeIdx, 1);\n  if (!newTags.includes('onboarding-complete')) {\n    newTags.push('onboarding-complete');\n  }\n}\n\nreturn {\n  contactId: milestone.contactId,\n  previousScore: currentScore,\n  newScore: newScore,\n  healthBoost: milestone.healthBoost,\n  milestone: milestone.milestone,\n  onboardingStatus: milestone.newOnboardingStatus,\n  onboardingComplete: milestone.onboardingComplete,\n  newTags: newTags,\n  firstName: contact.firstName,\n  lastName: contact.lastName,\n  company: contact.companyName\n};"
+      },
+      "id": "calculate-milestone-update",
+      "name": "Calculate Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 1200]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://rest.gohighlevel.com/v1/contacts/{{ $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tags\": {{ JSON.stringify($json.newTags) }},\n  \"customField\": {\n    \"health_score\": \"{{ $json.newScore }}\",\n    \"onboarding_status\": \"{{ $json.onboardingStatus }}\",\n    \"last_milestone\": \"{{ $json.milestone }}\",\n    \"last_milestone_at\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "update-milestone",
+      "name": "Update Customer Milestone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 1200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ghl-api-key",
+          "name": "GoHighLevel API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "onboarding-complete",
+              "leftValue": "={{ $('Calculate Updates').item.json.onboardingComplete }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-onboarding-complete",
+      "name": "Onboarding Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 1200]
+    },
+    {
+      "parameters": {
+        "channel": "#customer-success",
+        "text": "=:white_check_mark: *Onboarding Complete!*\n\n*Customer:* {{ $('Calculate Updates').item.json.firstName }} {{ $('Calculate Updates').item.json.lastName }}\n*Company:* {{ $('Calculate Updates').item.json.company }}\n*Health Score:* {{ $('Calculate Updates').item.json.newScore }}/100\n\nCustomer has completed all required onboarding milestones.\n\n<{{ $env.GHL_APP_URL }}/contacts/{{ $('Calculate Updates').item.json.contactId }}|View in GoHighLevel>",
+        "otherOptions": {}
+      },
+      "id": "slack-onboarding-complete",
+      "name": "Notify Onboarding Complete",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1680, 1080],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credentials",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Customer Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Onboarding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Onboarding": {
+      "main": [
+        [
+          {
+            "node": "Update Customer Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer Record": {
+      "main": [
+        [
+          {
+            "node": "Trigger Onboarding Sequence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Onboarding Sequence": {
+      "main": [
+        [
+          {
+            "node": "Is Enterprise?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Enterprise?": {
+      "main": [
+        [
+          {
+            "node": "Create Kickoff Call Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create Kickoff Call Task": {
+      "main": [
+        [
+          {
+            "node": "Notify CS Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Health Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Active Customers": {
+      "main": [
+        [
+          {
+            "node": "Calculate Health Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Health Scores": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Update Health Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Health Score": {
+      "main": [
+        [
+          {
+            "node": "Is High Risk?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is High Risk?": {
+      "main": [
+        [
+          {
+            "node": "Create Churn Prevention Task",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trigger Re-engagement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create Churn Prevention Task": {
+      "main": [
+        [
+          {
+            "node": "Slack Churn Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Feedback Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Happy Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Happy Customers": {
+      "main": [
+        [
+          {
+            "node": "Filter Feedback Eligible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Feedback Eligible": {
+      "main": [
+        [
+          {
+            "node": "Has Eligible Customers?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Eligible Customers?": {
+      "main": [
+        [
+          {
+            "node": "Route by Action Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Route by Action Type": {
+      "main": [
+        [
+          {
+            "node": "Trigger NPS Survey",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Testimonial Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Review Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger NPS Survey": {
+      "main": [
+        [
+          {
+            "node": "Tag as Requested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Testimonial Request": {
+      "main": [
+        [
+          {
+            "node": "Tag as Requested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Review Request": {
+      "main": [
+        [
+          {
+            "node": "Tag as Requested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Onboarding Milestone Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Milestone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Milestone": {
+      "main": [
+        [
+          {
+            "node": "Get Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer": {
+      "main": [
+        [
+          {
+            "node": "Calculate Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Updates": {
+      "main": [
+        [
+          {
+            "node": "Update Customer Milestone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Customer Milestone": {
+      "main": [
+        [
+          {
+            "node": "Onboarding Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Onboarding Complete?": {
+      "main": [
+        [
+          {
+            "node": "Notify Onboarding Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "CRM",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "GoHighLevel",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Customer Success",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Retention",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 4,
+  "pinData": {}
+}
