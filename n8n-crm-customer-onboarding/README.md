@@ -1,4 +1,4 @@
-# n8n CRM Customer Onboarding & Retention
+# CRM Customer Onboarding & Retention
 
 Post-sale automation for GoHighLevel: customer onboarding sequences, health scoring, churn prevention, and feedback collection.
 

@@ -1,4 +1,4 @@
-# n8n CRM Lead Management & Automation
+# CRM Lead Management
 
 Complete CRM automation system for GoHighLevel with intelligent lead scoring, lifecycle management, pipeline automation, and multi-channel tracking (GA4 + Meta).
 

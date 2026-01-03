@@ -1,4 +1,4 @@
-# n8n AI Interview Automation
+# AI Interview Automation
 
 Automates candidate screening and AI-powered interviews, sends follow-up reminders, and tracks everything in Google Sheets.
 
