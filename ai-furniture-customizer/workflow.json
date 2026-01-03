@@ -1,0 +1,1179 @@
+{
+  "name": "AI Furniture Customizer",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $json.body.email }}",
+            "name": "={{ $json.body.name }}",
+            "created_at": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "last_login": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "login_count": "=1",
+            "phone": "={{ $json.body.phone }}",
+            "describe yourself": "={{ $json.body.description }}"
+          },
+          "matchingColumns": [
+            "email"
+          ],
+          "schema": [
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "describe yourself",
+              "displayName": "describe yourself",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_login",
+              "displayName": "last_login",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "login_count",
+              "displayName": "login_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "7a29b65d-3883-47d6-b28a-864be645c751",
+      "name": "Google Sheets - Upsert User",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -4448,
+        1232
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "email",
+              "lookupValue": "={{ $('Webhook1').item.json.body.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5e44ff28-9870-4f68-b52a-2a233a811678",
+      "name": "Google Sheets - Get User",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -4240,
+        1232
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-user-exists",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c2d6cca6-83da-4633-9f87-bfe19273f273",
+      "name": "User Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -4016,
+        1232
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"isNewUser\": false,\n  \"user\": {\n    \"name\": \"{{ $json.name }}\",\n    \"email\": \"{{ $json.email }}\",\n    \"phone\": \"{{ $json.phone }}\",\n    \"loginCount\": {{ $json.login_count || 1 }}\n  },\n  \"message\": \"Welcome back!\"\n}\n",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "5a17c2b6-c6f8-4ac5-b98d-f49cc90b95f8",
+      "name": "Respond - Existing User",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3792,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"isNewUser\": true,\n  \"user\": {\n    \"name\": \"{{ $('Webhook1').item.json.body.name }}\",\n    \"email\": \"{{ $('Webhook1').item.json.body.email }}\",\n    \"phone\": \"{{ $('Webhook1').item.json.body.phone }}\",\n    \"loginCount\": 1\n  },\n  \"message\": \"Account created successfully!\"\n}\n",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f8e8e4b7-086e-4ee5-83b5-8e3f9e1ee26c",
+      "name": "Respond - New User",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3792,
+        1328
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auth-google-sheets",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "e21ee194-b0c3-4a0d-aa8c-e7a509b4d6c8",
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4672,
+        1232
+      ],
+      "webhookId": "auth-google-sheets"
+    },
+    {
+      "parameters": {
+        "url": "YOUR_PRODUCT_API_URL",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "s",
+              "value": "=SELECT DISTINCT \n    v.id AS product_id,\n    v.name AS product_name,\n    v.category AS category,\n    v.brand AS brand_name,\n    b.img AS brand_image,         \n    v.price AS price,\n    pd.data AS description,\n    v.img AS base_image_url,\n    v.url AS product_url\n\nFROM products v\n\nLEFT JOIN product_details pd \n    ON v.id = pd.product_id \n    AND pd.name = 'SHORT-DESCRIPTION'\n\nLEFT JOIN brands b\n    ON TRIM(LOWER(v.brand)) = TRIM(LOWER(b.publicname))\n\nWHERE \n    v.id = '{{ $json.body.productId }}'\n    AND v.sellable = 1\n    AND v.discontinued = 0\n    AND v.published = 1\n\nLIMIT 1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_API_KEY"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4448,
+        1584
+      ],
+      "id": "801bb939-f898-4cae-84c3-999352e8c268",
+      "name": "Fetch Product Data",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-furniture-generator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4672,
+        1584
+      ],
+      "id": "10ac9513-2a20-4b88-8878-9f8e1f4e30b0",
+      "name": "Webhook Trigger",
+      "webhookId": "ai-furniture-generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const product = $('Fetch Product Data').first().json;\nconst input = $('Webhook Trigger').first().json.body;\n\nconst imageUrl = input.baseImage || product.base_image_url;\n\nif (!imageUrl) {\n  return { json: { error: 'No image URL provided' } };\n}\n\n// Build prompt for furniture with Top and Base materials\nconst topMaterial = input.top?.name || input.top?.color || 'default';\nconst baseMaterial = input.base?.name || input.base?.color || 'default';\n\nconst editPrompt = `Edit this furniture product photo with the following specifications:\n\nMATERIAL CHANGES:\n- Change the table TOP surface to: ${topMaterial} material/finish\n- Change the table BASE/LEGS to: ${baseMaterial} color/finish\n\nCRITICAL OUTPUT REQUIREMENTS:\n1. SQUARE FORMAT: Output MUST be exactly 1:1 aspect ratio (square image)\n2. COMPLETE VISIBILITY: The ENTIRE furniture piece must be fully visible\n   - NO cropping on ANY side (top, bottom, left, right)\n   - ALL legs, edges, and surfaces must be completely within frame\n3. PADDING: Leave 15-20% empty space/margin around the furniture on ALL sides\n4. CENTERING: Position the furniture in the exact center of the square\n5. SCALE: If the furniture is too large, SCALE IT DOWN to fit with padding\n   - The furniture should occupy approximately 60-70% of the image area\n   - Never let any part touch or extend beyond the image edges\n\nSTYLE:\n- Clean, neutral background (white or soft light gray gradient)\n- Professional product photography lighting\n- Photorealistic, high-quality commercial style\n- Front 3/4 angle showing the furniture's best features\n\nIMPORTANT: Prioritize showing the COMPLETE furniture over filling the frame. It is better to have more empty space than to crop any part of the furniture.`;\n\nconst geminiBody = {\n  contents: [{\n    parts: [\n      {\n        text: editPrompt\n      },\n      {\n        inlineData: {\n          mimeType: \"image/jpeg\",\n          data: \"PLACEHOLDER_SOURCE\"\n        }\n      }\n    ]\n  }],\n  generationConfig: {\n    temperature: 0.4,\n    topK: 32,\n    topP: 1,\n    maxOutputTokens: 4096\n  }\n};\n\nreturn {\n  json: {\n    productId: product.product_id || input.productId,\n    productName: product.product_name || input.productName,\n    size: input.size,\n    top: topMaterial,\n    base: baseMaterial,\n    imageUrl: imageUrl,\n    watermarkUrl: 'YOUR_WATERMARK_URL',\n    editPrompt: editPrompt,\n    requestBody: geminiBody,\n    skipWatermark: true\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4240,
+        1584
+      ],
+      "id": "a5f24d43-a9a9-44ef-ae47-aa0f5db46c1a",
+      "name": "Build AI Prompt"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -2576,
+        1584
+      ],
+      "id": "197b630e-b696-45d4-ac98-daa659f21e6a",
+      "name": "Send Webhook Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "YOUR_GEMINI_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -3408,
+        1584
+      ],
+      "id": "29eafd6c-50ee-4872-92bc-82dcde02c7d3",
+      "name": "Generate with Gemini AI"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst promptData = $('Build AI Prompt').first().json;\n\nlet sourceBase64 = '';\n\nfor (const item of items) {\n  const binaryKey = Object.keys(item.binary)[0];\n  const base64 = item.binary[binaryKey].data;\n  const fileName = item.binary[binaryKey].fileName || '';\n  \n  if (!fileName.toLowerCase().includes('watermark')) {\n    sourceBase64 = base64;\n    break;\n  }\n}\n\nif (!sourceBase64) {\n  // Fallback: take first available image\n  const firstItem = items[0];\n  const binaryKey = Object.keys(firstItem.binary)[0];\n  sourceBase64 = firstItem.binary[binaryKey].data;\n}\n\nconst requestBody = promptData.requestBody;\nrequestBody.contents[0].parts[1].inlineData.data = sourceBase64;\n\nreturn [{\n  json: {\n    ...promptData,\n    sourceBase64: sourceBase64,\n    requestBody: requestBody\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3648,
+        1584
+      ],
+      "id": "0037aeac-2212-49b9-b9c5-1c34068b511a",
+      "name": "Convert Image to Base64"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -4016,
+        1488
+      ],
+      "id": "c8d45c93-1fcb-4e10-92bd-46307626d2a9",
+      "name": "Download Source Image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst promptData = $('Build AI Prompt').first().json;\n\n// Find the part that contains the image (could be in any position)\nlet base64Image = null;\nlet mimeType = 'image/png';\n\nconst parts = geminiResponse.candidates?.[0]?.content?.parts || [];\n\n// Loop through all parts to find the image\nfor (let i = 0; i < parts.length; i++) {\n  const part = parts[i];\n  if (part.inlineData && part.inlineData.data) {\n    base64Image = part.inlineData.data;\n    mimeType = part.inlineData.mimeType || 'image/png';\n    break;\n  }\n}\n\nif (!base64Image) {\n  // Fallback: try direct access to parts[1] since we can see it's there\n  if (parts[1]?.inlineData?.data) {\n    base64Image = parts[1].inlineData.data;\n    mimeType = parts[1].inlineData.mimeType || 'image/png';\n  }\n}\n\nif (!base64Image) {\n  throw new Error('No image generated from Gemini - parts found: ' + parts.length);\n}\n\nconst timestamp = new Date().getTime();\nconst filename = `ai_furniture_${promptData.productId}_${promptData.top.replace(/\\s+/g, '_')}_${promptData.base.replace(/\\s+/g, '_')}_${timestamp}.png`;\n\nconst buffer = Buffer.from(base64Image, 'base64');\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  buffer,\n  filename,\n  mimeType\n);\n\nreturn {\n  json: {\n    success: true,\n    filename: filename,\n    productId: promptData.productId,\n    productName: promptData.productName,\n    size: promptData.size,\n    top: promptData.top,\n    base: promptData.base,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: binaryData\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3200,
+        1584
+      ],
+      "id": "09a1f52b-d694-47c3-b966-cb8c276c5bce",
+      "name": "Extract Generated Image"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "path": "=/YOUR_FTP_PATH/{{ $json.filename }}"
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -2992,
+        1584
+      ],
+      "id": "a730daa9-1077-4f88-bae8-f9ac2638e6e8",
+      "name": "Upload Image via FTP",
+      "credentials": {
+        "ftp": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "FTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const imageData = $('Extract Generated Image').first().json;\nconst binaryData = $('Extract Generated Image').first().binary;\n\n// Get the base64 from binary data (for webhook response)\nconst base64Image = binaryData?.data?.data || '';\nconst mimeType = binaryData?.data?.mimeType || 'image/png';\n\n// Construct the FTP URL for Google Sheets storage\nconst ftpUrl = `YOUR_CDN_BASE_URL/${imageData.filename}`;\n\nreturn {\n  json: {\n    success: true,\n    // Return base64 for immediate display in browser\n    imageUrl: `data:${mimeType};base64,${base64Image}`,\n    // Store FTP URL for Google Sheets (much shorter)\n    ftpImageUrl: ftpUrl,\n    productId: imageData.productId,\n    productName: imageData.productName,\n    upholstery: imageData.upholstery,\n    timestamp: imageData.timestamp,\n    filename: imageData.filename\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2800,
+        1584
+      ],
+      "id": "89ce069a-adca-4521-b4eb-e8857cacdbae",
+      "name": "Prepare Sheet Data"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Furniture register"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "images",
+          "mode": "list",
+          "cachedResultName": "images"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Product ID": "={{ $json.productId }}",
+            "Product Name": "={{ $json.productName }}",
+            "Color": "={{ $json.upholstery.color }}",
+            "Generated Image URL": "={{ $json.ftpImageUrl }}",
+            "Filename": "={{ $json.filename }}",
+            "Collection Name": "={{ $json.upholstery.collection }}",
+            "Color Hex Code": "={{ $json.upholstery.hex }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product ID",
+              "displayName": "Product ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product Name",
+              "displayName": "Product Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Collection Name",
+              "displayName": "Collection Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Color",
+              "displayName": "Color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Color Hex Code",
+              "displayName": "Color Hex Code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Generated Image URL",
+              "displayName": "Generated Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Filename",
+              "displayName": "Filename",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2576,
+        1776
+      ],
+      "id": "2179a4b8-cdf8-46c2-859f-674fea6c20dd",
+      "name": "Log to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save-design",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4672,
+        1888
+      ],
+      "id": "fbef6752-cb92-45b2-8bef-6ba703c8c910",
+      "name": "Save Design Webhook",
+      "webhookId": "save-design"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gallery",
+          "mode": "list",
+          "cachedResultName": "Gallery"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}",
+            "User Email": "={{ $json.body.userEmail || 'Guest' }}",
+            "Username": "={{ $json.body.userName || 'Guest' }}",
+            "Product ID": "={{ $json.body.productId }}",
+            "Product Name": "={{ $json.body.productName }}",
+            "Collection": "={{ $json.body.collection }}",
+            "Color": "={{ $json.body.color }}",
+            "Color Hex": "={{ $json.body.colorHex }}",
+            "Image URL": "={{ $json.body.imageUrl }}",
+            "Design Name": "={{ $json.body.designName || 'Untitled' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "User Email",
+              "displayName": "User Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Username",
+              "displayName": "Username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product ID",
+              "displayName": "Product ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product Name",
+              "displayName": "Product Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Collection",
+              "displayName": "Collection",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Color",
+              "displayName": "Color",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Color Hex",
+              "displayName": "Color Hex",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Design Name",
+              "displayName": "Design Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -4448,
+        1888
+      ],
+      "id": "9958896b-0b35-4135-9cbe-a88f0c635c8b",
+      "name": "Save to Gallery Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  message: 'Design saved to gallery'\n}) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -4240,
+        1888
+      ],
+      "id": "63017060-7488-4a72-9a48-6c7d3656f02c",
+      "name": "Respond with Success"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-client-designs",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "f930cf6a-2c69-42ca-81e3-3c884d420722",
+      "name": "Get Designs Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -4672,
+        2208
+      ],
+      "webhookId": "get-client-designs"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gallery",
+          "mode": "list",
+          "cachedResultName": "Gallery"
+        },
+        "options": {}
+      },
+      "id": "c9366add-feb6-4d04-aa92-9728743f4f74",
+      "name": "Read Gallery Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -4448,
+        2208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst webhookData = $('Get Designs Webhook').first().json.body;\nconst productId = webhookData?.productId || '';\n\n// Filter by product ID if provided, otherwise return all\nlet designs = items.map(item => ({\n  id: item.json.row_number,\n  userName: item.json['Username'] || 'Anonymous',\n  userEmail: item.json['User Email'] || '',\n  productId: item.json['Product ID'] || '',\n  productName: item.json['Product Name'] || '',\n  collection: item.json['Collection'] || '',\n  color: item.json['Color'] || '',\n  colorHex: item.json['Color Hex'] || '',\n  imageUrl: item.json['Image URL'] || '',\n  designName: item.json['Design Name'] || 'Untitled',\n  timestamp: item.json['Timestamp'] || '',\n  upholsterySelection: `${item.json['Collection'] || ''} - ${item.json['Color'] || ''}`\n}));\n\n// Filter by productId if specified\nif (productId) {\n  designs = designs.filter(d => d.productId === productId);\n}\n\n// Sort by timestamp descending (newest first)\ndesigns.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));\n\n// Limit to most recent 20 designs\ndesigns = designs.slice(0, 20);\n\nreturn {\n  json: {\n    success: true,\n    count: designs.length,\n    designs: designs\n  }\n};"
+      },
+      "id": "66e6d93d-0eb3-4ee4-97f7-95abe5c3134e",
+      "name": "Format Designs Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4240,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              }
+            ]
+          }
+        }
+      },
+      "id": "39fcba56-7107-468f-9165-206995144056",
+      "name": "Send Designs Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -4016,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.watermarkUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -4016,
+        1696
+      ],
+      "id": "1890b460-f360-4c2e-aecf-50eb5d372f51",
+      "name": "Download Watermark"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3824,
+        1584
+      ],
+      "id": "2ba2b123-3f53-4081-ae72-a132a7d115dd",
+      "name": "Merge"
+    }
+  ],
+  "connections": {
+    "Google Sheets - Upsert User": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Get User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Get User": {
+      "main": [
+        [
+          {
+            "node": "User Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Found?": {
+      "main": [
+        [
+          {
+            "node": "Respond - Existing User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - New User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Upsert User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Product Data": {
+      "main": [
+        [
+          {
+            "node": "Build AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Product Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Download Source Image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download Watermark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate with Gemini AI": {
+      "main": [
+        [
+          {
+            "node": "Extract Generated Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Image to Base64": {
+      "main": [
+        [
+          {
+            "node": "Generate with Gemini AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Source Image": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Generated Image": {
+      "main": [
+        [
+          {
+            "node": "Upload Image via FTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image via FTP": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Send Webhook Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Design Webhook": {
+      "main": [
+        [
+          {
+            "node": "Save to Gallery Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Gallery Sheet": {
+      "main": [
+        [
+          {
+            "node": "Respond with Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Designs Webhook": {
+      "main": [
+        [
+          {
+            "node": "Read Gallery Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Gallery Sheet": {
+      "main": [
+        [
+          {
+            "node": "Format Designs Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Designs Response": {
+      "main": [
+        [
+          {
+            "node": "Send Designs Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Watermark": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Convert Image to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "AI",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Gemini",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "Image Generation",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 4,
+  "pinData": {}
+}
